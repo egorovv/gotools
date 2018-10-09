@@ -141,7 +141,10 @@ func reviewers(s string) (m []User, desc string) {
 	return
 }
 
-func edit(args Args, text string, m []User) (subj, desc string) {
+func prepare(args Args, m []User) (fn string) {
+
+	text := sh(`git`, `log`, `@{u}..`, `--pretty=%B`)
+
 	t, err := template.New("PR").Parse(`#
 # Edit pull request title and description.
 # All lines starting with # will be removed. Of the remaining the first
@@ -178,15 +181,18 @@ Notify:{{range .Members }} @{{ .Id }}{{end}}
 	if err != nil {
 		log.Panic(err)
 	}
-	fn := f.Name()
-	defer os.Remove(fn)
+	fn = f.Name()
 
 	err = t.Execute(f, data)
 	f.Close()
+	return
+}
+
+func edit(fn string) (subj, desc string) {
 	cmd := exec.Command("/usr/bin/editor", fn)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
 		log.Panic(err)
 	}

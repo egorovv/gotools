@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"strings"
 
 	"gotools/rest"
@@ -75,33 +76,39 @@ func (b *Bb) create(args Args) {
 
 	users := b.members(r, args)
 
-	hist := sh(`git`, `log`, `@{u}..`, `--pretty=%B`)
+	fn := prepare(args, users)
+	defer os.Remove(fn)
 
-	subj, desc := edit(args, hist, users)
-	users, desc = reviewers(desc)
-	if strings.HasPrefix(subj, "!") {
-		return
+	for {
+		subj, desc := edit(fn)
+		users, desc = reviewers(desc)
+		if strings.HasPrefix(subj, "!") {
+			return
+		}
+
+		body := PullRequestBody{
+			Title:       subj,
+			Description: desc,
+		}
+		for _, u := range users {
+			body.Reviewers = append(body.Reviewers, BbUser{Id: u.Id, Name: u.Name})
+		}
+		body.Source.Branch.Name = args.Branch
+		body.Destination.Branch.Name = args.Upstream
+
+		path := fmt.Sprintf("/repositories/%s/%s/pullrequests", args.Owner, args.Repo)
+		res, err := r.Post(path, body)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+
+		prr := PullRequest{}
+		unpack(res, &prr)
+		dump("Pull request", prr)
+		break
 	}
 
-	body := PullRequestBody{
-		Title:       subj,
-		Description: desc,
-	}
-	for _, u := range users {
-		body.Reviewers = append(body.Reviewers, BbUser{Id: u.Id, Name: u.Name})
-	}
-	body.Source.Branch.Name = args.Branch
-	body.Destination.Branch.Name = args.Upstream
-
-	path := fmt.Sprintf("/repositories/%s/%s/pullrequests", args.Owner, args.Repo)
-	res, err := r.Post(path, body)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	prr := PullRequest{}
-	unpack(res, &prr)
-	dump("Pull request", prr)
 }
 
 func merge(args Args) {
