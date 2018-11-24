@@ -65,12 +65,14 @@ func (b *Bb) members(r *rest.Rest, args Args) (users []User) {
 			users = append(users, User{Id: u.Id, Name: u.Name})
 		}
 	}
+
 	return
 
 }
 
-func (b *Bb) create(args Args) {
+func (b *Bb) create() {
 
+	args := b.args
 	r := rest.NewRest("https://api.bitbucket.org/2.0",
 		args.User, args.Password, args.Verbose)
 
@@ -111,7 +113,8 @@ func (b *Bb) create(args Args) {
 
 }
 
-func merge(args Args) {
+func (b *Bb) merge() {
+	args := b.args
 
 	rest := rest.NewRest("https://api.bitbucket.org/2.0",
 		args.User, args.Password, args.Verbose)
@@ -138,9 +141,15 @@ func merge(args Args) {
 	}
 }
 
-type Bb struct {
+func (b *Bb) test() {
 }
 
-func bb() *Bb {
-	return &Bb{}
+type Bb struct {
+	args Args
+}
+
+func bb(args Args) Git {
+	return &Bb{
+		args: args,
+	}
 }

@@ -101,20 +101,32 @@ func (c *Rest) Do(method string, url string, query url.Values,
 	for url != "" {
 		res, h, err := c.request(method, url, query, data)
 
-		var result []map[string]interface{}
-		err = json.Unmarshal(res, &result)
-		if err != nil {
-			return nil, err
+		if h["Link"] != nil {
+			e := []map[string]interface{}{}
+			err = json.Unmarshal(res, &e)
+			if err != nil {
+				return nil, err
+			}
+			ret = append(ret, e...)
+			if c.verbose {
+				log.Printf("%s : %s %s", h, e)
+			}
+		} else {
+			e := map[string]interface{}{}
+			err = json.Unmarshal(res, &e)
+			ret = append(ret, e)
+			if c.verbose {
+				log.Printf("%s : %s %s", h, e)
+			}
 		}
-		ret = append(ret, result...)
 
 		url = ""
 		if l, ok := h["Link"]; ok {
 			for _, ll := range l {
 				for _, rel := range strings.Split(ll, ",") {
-					log.Printf("rel = %s\n", rel)
 					parts := strings.SplitN(rel, ";", 2)
 					if strings.TrimSpace(parts[1]) == `rel="next"` {
+						log.Printf("rel = %s\n", rel)
 						url = strings.TrimSpace(parts[0])
 						url = url[1 : len(url)-1]
 					}

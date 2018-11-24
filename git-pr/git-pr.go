@@ -27,16 +27,18 @@ type Args struct {
 	Branch   string `json:"branch,omitempty"`
 	Upstream string `json:"upstream,omitempty"`
 	Verbose  bool   `json:"verbose"`
+	args     []string
 }
 
 type User struct {
-	Id   string
 	Name string
+	Id   string
 }
 
 type Git interface {
 	create()
 	merge()
+	test()
 }
 
 func load(a *Args, fn string) {
@@ -217,7 +219,7 @@ func main() {
 		Owner:  "velocloud",
 		Repo:   "velocloud.src",
 		Team:   "vcdp",
-		Branch: "{{.Branch}}",
+		Branch: "{{.User}}-{{.Branch}}",
 	}
 
 	load(&args, ".git-pr")
@@ -236,19 +238,20 @@ func main() {
 			"/", 2)[1]
 	}
 
-	git := bb()
+	args.args = flag.Args()[1:]
+	git := NewGitlab(args)
 
 	switch flag.Arg(0) {
 	case "install":
 		install(args)
 	case "merge":
-		merge(args)
-	case "gitlab":
-		gitlab_req(args, flag.Arg(1))
+		git.merge()
+	case "test":
+		git.test()
 	case "", "create":
-		git.create(args)
+		git.create()
 	default:
-		log.Panic("error")
+		log.Panic(flag.Args())
 	}
 
 }
