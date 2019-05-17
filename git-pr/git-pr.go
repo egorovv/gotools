@@ -23,10 +23,12 @@ type Args struct {
 	Repo     string `json:"repo,omitempty"`
 	User     string `json:"user,omitempty"`
 	Password string `json:"password,omitempty"`
-	Team     string `json:"team,omitempty"`
 	Branch   string `json:"branch,omitempty"`
 	Upstream string `json:"upstream,omitempty"`
+	Team     string `json:"team,omitempty"`
+	Label    string `json:"label,omitempty"`
 	Verbose  bool   `json:"verbose"`
+	remote   string
 	args     []string
 }
 
@@ -145,7 +147,8 @@ func reviewers(s string) (m []User, desc string) {
 
 func prepare(args Args, m []User) (fn string) {
 
-	text := sh(`git`, `log`, `@{u}..`, `--pretty=%B`)
+	text := sh(`git`, `log`, `--reverse`, `@{u}..`, `--pretty= - %B`)
+	text = text[2:]
 
 	t, err := template.New("PR").Parse(`#
 # Edit pull request title and description.
@@ -158,13 +161,14 @@ func prepare(args Args, m []User) (fn string) {
 # Upstream: {{ .Args.Upstream }}
 # Owner/Repo: {{ .Args.Owner }}/{{ .Args.Repo }}
 #
-{{.Body}}
+!{{.Body}}
+
+@{{.Args.Team}}
 
 # This PR will be sent to the following recipients:
 # Review-By: add as a reviewer
 # Notify: list of @references to receive notifications
-Notify:{{range .Members }} @{{ .Id }}{{end}}
-{{range .Members }}Review-By: {{ .Id }} <{{ .Name }}>
+{{range .Members }}#Review-By: {{ .Id }} <{{ .Name }}>
 {{end}}
 
 `)
@@ -212,18 +216,41 @@ func edit(fn string) (subj, desc string) {
 func install(args Args) {
 	exe := os.Args[0]
 	sh(`git`, `config`, `--global`, `alias.pr`, `!`+exe)
+
+	if args.Password != "" {
+		sh(`git`, `config`, `pr.password`, args.Password)
+	}
+	if args.Team != "" {
+		sh(`git`, `config`, `pr.team`, args.Team)
+	}
+}
+
+func git_detect(args *Args) {
+
+	upstream := strings.SplitN(
+		sh(`git`, `rev-parse`, `--abbrev-ref`, `@{u}`), "/", 2)
+
+	remote := strings.Split(
+		sh(`git`, `remote`, `get-url`, upstream[0]), ":")
+
+	repo := strings.SplitN(remote[len(remote)-1], "/", 2)
+
+	args.remote = upstream[0]
+	args.Upstream = upstream[1]
+	args.Owner = repo[0]
+	args.Repo = strings.TrimSuffix(repo[1], ".git")
 }
 
 func main() {
 	args := Args{
-		Owner:  "velocloud",
-		Repo:   "velocloud.src",
-		Team:   "vcdp",
-		Branch: "{{.User}}-{{.Branch}}",
+		Team:   "velocloud/dp",
+		Branch: "{{.Branch}}",
 	}
 
-	load(&args, ".git-pr")
+	git_detect(&args)
+
 	parse(&args)
+	load(&args, ".git-pr")
 	load_git()
 
 	t, _ := template.New("PR").Parse(args.Branch)
@@ -232,13 +259,9 @@ func main() {
 	t.Execute(b, args)
 	args.Branch = b.String()
 
-	if args.Upstream == "" {
-		args.Upstream = strings.SplitN(
-			sh(`git`, `rev-parse`, `--abbrev-ref`, `@{u}`),
-			"/", 2)[1]
+	if len(flag.Args()) > 0 {
+		args.args = flag.Args()[1:]
 	}
-
-	args.args = flag.Args()[1:]
 	git := NewGitlab(args)
 
 	switch flag.Arg(0) {
@@ -249,6 +272,7 @@ func main() {
 	case "test":
 		git.test()
 	case "", "create":
+		sh(`git`, `push`, `-f`, args.remote, fmt.Sprintf("HEAD:%s", args.Branch))
 		git.create()
 	default:
 		log.Panic(flag.Args())

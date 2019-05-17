@@ -41,65 +41,98 @@ func (g *Gitlab) Post(path string, data interface{}) ([]map[string]interface{}, 
 	return g.request("POST", path, data)
 }
 
+func (g *Gitlab) Put(path string, data interface{}) ([]map[string]interface{}, error) {
+	return g.request("PUT", path, data)
+}
+
 func (g *Gitlab) test() {
 	x := g.Get(g.args.args[0])
 	dump("result", x)
 }
 
 type GitlabUser struct {
-	//Id    int    `json:"id"`
+	Uid  int    `json:"id"`
 	Id   string `json:"username"`
 	Name string `json:"name"`
 }
 
-func (g *Gitlab) members() (users []User) {
+func (g *Gitlab) members() (users []GitlabUser) {
 	args := g.args
 
-	x := g.Get(fmt.Sprintf("/groups/%s/members", url.PathEscape(args.Team)))
-	m := []GitlabUser{}
-	unpack(x, &m)
-
-	for _, u := range m {
-		//if u.Id != args.User {
-		users = append(users, User{Id: u.Id, Name: u.Name})
-		//}
-	}
+	x := g.Get(fmt.Sprintf("/groups/%s/members", url.QueryEscape(args.Team)))
+	unpack(x, &users)
 
 	return users
 }
 
 type GitlabMergeRequest struct {
-	Id     string   `json:"id"`
-	Src    string   `json:"source_branch"`
-	Dst    string   `json:"target_branch"`
-	Title  string   `json:"title"`
-	Descr  string   `json:"description"`
-	Users  []string `json:"approver_ids"`
-	Groups []string `json:"approver_group_ids"`
+	Id     string `json:"id"`
+	Src    string `json:"source_branch"`
+	Dst    string `json:"target_branch"`
+	Title  string `json:"title"`
+	Descr  string `json:"description"`
+	Labels string `json:"labels"`
+}
+type GitlabMergeApprovers struct {
+	Id     int   `json:"id"`
+	Iid    int   `json:"iid"`
+	Users  []int `json:"approver_ids",omitempty`
+	Groups []int `json:"approver_group_ids",omitempty`
 }
 
-func (g *Gitlab) submit(subj, desc string, m []User) error {
+func (g *Gitlab) submit(subj, desc string, ids []int) error {
 
 	args := g.args
-	proj := args.Owner + "%2F" + args.Repo
+	proj := url.QueryEscape(args.Owner + "/" + args.Repo)
 	mr := GitlabMergeRequest{
 		Id:     proj,
 		Src:    args.Branch,
 		Dst:    args.Upstream,
 		Title:  subj,
 		Descr:  desc,
-		Groups: []string{args.Team},
-	}
-	for _, u := range m {
-		mr.Users = append(mr.Users, u.Id)
+		Labels: args.Label,
 	}
 	path := fmt.Sprintf("projects/%s/merge_requests", proj)
-	_, err := g.Post(path, &mr)
+
+	resp, err := g.Post(path, &mr)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	mri := struct {
+		Id        int    `json:"id"`
+		Iid       int    `json:"iid"`
+		ProjectId int    `json:"project_id"`
+		Url       string `json:"web_url"`
+	}{}
+	unpack(resp[0], &mri)
+	dump("mr:", &mri)
+	mra := GitlabMergeApprovers{
+		Id:     mri.Id,
+		Iid:    mri.Iid,
+		Users:  ids,
+		Groups: []int{},
+	}
+
+	path = fmt.Sprintf("projects/%d/merge_requests/%d/approvers",
+		mri.ProjectId, mri.Iid)
+
+	resp, err = g.Put(path, &mra)
+	if err != nil {
+		log.Panic(err)
+	}
+
 	return err
 }
 
 func (g *Gitlab) create() {
-	users := g.members()
+	members := g.members()
+	users := []User{}
+	for _, u := range members {
+		if u.Id != g.args.User {
+			users = append(users, User{Id: u.Id, Name: u.Name})
+		}
+	}
 
 	fn := prepare(g.args, users)
 	defer os.Remove(fn)
@@ -111,7 +144,16 @@ func (g *Gitlab) create() {
 		}
 		users, desc = reviewers(desc)
 
-		if g.submit(subj, desc, users) == nil {
+		ids := []int{}
+		for _, u := range users {
+			for _, m := range members {
+				if u.Id == m.Id {
+					ids = append(ids, m.Uid)
+					break
+				}
+			}
+		}
+		if g.submit(subj, desc, ids) == nil {
 			break
 		}
 	}

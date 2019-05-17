@@ -94,9 +94,7 @@ func (c *Rest) request(method string, url string, query url.Values,
 }
 
 func (c *Rest) Do(method string, url string, query url.Values,
-	data interface{}) ([]map[string]interface{}, error) {
-
-	var ret []map[string]interface{}
+	data interface{}) (ret []map[string]interface{}, err error) {
 
 	for url != "" {
 		res, h, err := c.request(method, url, query, data)
@@ -126,7 +124,6 @@ func (c *Rest) Do(method string, url string, query url.Values,
 				for _, rel := range strings.Split(ll, ",") {
 					parts := strings.SplitN(rel, ";", 2)
 					if strings.TrimSpace(parts[1]) == `rel="next"` {
-						log.Printf("rel = %s\n", rel)
 						url = strings.TrimSpace(parts[0])
 						url = url[1 : len(url)-1]
 					}
@@ -135,7 +132,7 @@ func (c *Rest) Do(method string, url string, query url.Values,
 		}
 	}
 
-	return ret, nil
+	return ret, err
 }
 
 func (c *Rest) execute(method string, url string, query url.Values,
