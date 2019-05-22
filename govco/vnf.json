@@ -1,0 +1,34 @@
+{
+    "vnfs": {
+        "securityVnf": [
+            {
+                "cidrIp": null,
+                "cidrPrefix": null,
+                "enabled": false,
+                "gateway": null,
+                "insertionEnabled": null,
+                "logicalId": "bc45172d-396b-4815-ab79-187513f689a8",
+                "name": "Palo Alto237511508890315270",
+                "ref": "deviceSettings:vnf:security:PaloAlto",
+                "type": "securityVnf",
+                "vendor": "PaloAlto",
+                "vendorSpecificData": {
+                    "authCode": null,
+                    "authCodeValidated": false,
+                    "authCodeValidationTimeStamp": null,
+                    "configTemplateName": "BayAreaMountainViewCampus",
+                    "deviceGroupName": "BayArea",
+                    "managementServer": {
+                        "authKey": "***",
+                        "primary": "panorama4.customer.com",
+                        "secondary": "panorama2.customer.com"
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+

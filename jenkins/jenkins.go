@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"gotools/util"
 	"io"
 	"net/http"
 	"os"
@@ -100,7 +101,7 @@ func main() {
 		Job:  "master-nightly-build",
 	}
 
-	load(&args)
+	util.GetFlags(&args, "jenkins")
 
 	flag.StringVar(&args.Cmd, "cmd", "get", "job name")
 	flag.StringVar(&args.Job, "job", args.Job, "job name")

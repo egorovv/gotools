@@ -5,17 +5,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"gotools/util"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
-	"os/user"
-	"path"
-	"reflect"
 	"regexp"
 	"strings"
 	"text/template"
-	"unsafe"
 )
 
 type Args struct {
@@ -41,69 +38,6 @@ type Git interface {
 	create()
 	merge()
 	test()
-}
-
-func load(a *Args, fn string) {
-	user, err := user.Current()
-	if err != nil {
-		return
-	}
-	a.User = user.Username
-	path := path.Join(user.HomeDir, fn)
-
-	if f, err := os.Open(path); err == nil {
-		defer f.Close()
-		p := json.NewDecoder(f)
-		p.Decode(a)
-	}
-}
-
-func load_git() {
-	git := map[string]string{}
-	config := sh(`git`, `config`, `-l`)
-	for _, line := range strings.Split(config, "\n") {
-		parts := strings.SplitN(line, `=`, 2)
-		git[parts[0]] = parts[1]
-	}
-
-	f := func(f *flag.Flag) {
-		if val, ok := git[`pr.`+f.Name]; ok {
-			flag.Set(f.Name, val)
-		}
-	}
-	flag.VisitAll(f)
-}
-
-func parse(a *Args) {
-	v := reflect.ValueOf(a).Elem()
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		name := f.Name
-		tag := f.Tag.Get("json")
-		if tag != "" {
-			name = strings.Split(tag, ",")[0]
-		}
-		vf := v.Field(i)
-		switch vf.Type().Kind() {
-		case reflect.Bool:
-			p := (*bool)(unsafe.Pointer(vf.UnsafeAddr()))
-			flag.BoolVar(p, name, *p, "")
-		case reflect.String:
-			p := (*string)(unsafe.Pointer(vf.UnsafeAddr()))
-			flag.StringVar(p, name, *p, "")
-		}
-
-	}
-	flag.Parse()
-}
-
-func sh(cmd string, arg ...string) string {
-	out, err := exec.Command(cmd, arg...).Output()
-	if err != nil {
-		log.Panicf("%s %s : %s", cmd, arg, err)
-	}
-	return strings.TrimSpace(string(out))
 }
 
 func dump(prefix string, v interface{}) {
@@ -147,11 +81,12 @@ func reviewers(s string) (m []User, desc string) {
 
 func prepare(args Args, m []User) (fn string) {
 
-	text := sh(`git`, `log`, `--reverse`, `@{u}..`, `--pretty= - %B`)
+	text := util.Sh(`git`, `log`, `--reverse`, `@{u}..`, `--pretty= - %B`)
 	text = text[2:]
 
 	t, err := template.New("PR").Parse(`#
-# Edit pull request title and description.
+# Edit pull request title and description, remove starting '!'.
+#
 # All lines starting with # will be removed. Of the remaining the first
 # line will be used as a title and the rest as description.
 # Subject starting with ! will cause the oeration to abort.
@@ -160,8 +95,9 @@ func prepare(args Args, m []User) (fn string) {
 # Branch: {{ .Args.Branch }}
 # Upstream: {{ .Args.Upstream }}
 # Owner/Repo: {{ .Args.Owner }}/{{ .Args.Repo }}
+# Label: {{ .Args.Label }}
 #
-!{{.Body}}
+{{.Body}}
 
 @{{.Args.Team}}
 
@@ -215,23 +151,17 @@ func edit(fn string) (subj, desc string) {
 
 func install(args Args) {
 	exe := os.Args[0]
-	sh(`git`, `config`, `--global`, `alias.pr`, `!`+exe)
-
-	if args.Password != "" {
-		sh(`git`, `config`, `pr.password`, args.Password)
-	}
-	if args.Team != "" {
-		sh(`git`, `config`, `pr.team`, args.Team)
-	}
+	util.Sh(`git`, `config`, `--global`, `alias.pr`, `!`+exe)
+	util.SaveGitFlags("pr")
 }
 
 func git_detect(args *Args) {
 
 	upstream := strings.SplitN(
-		sh(`git`, `rev-parse`, `--abbrev-ref`, `@{u}`), "/", 2)
+		util.Sh(`git`, `rev-parse`, `--abbrev-ref`, `@{u}`), "/", 2)
 
 	remote := strings.Split(
-		sh(`git`, `remote`, `get-url`, upstream[0]), ":")
+		util.Sh(`git`, `remote`, `get-url`, upstream[0]), ":")
 
 	repo := strings.SplitN(remote[len(remote)-1], "/", 2)
 
@@ -249,13 +179,11 @@ func main() {
 
 	git_detect(&args)
 
-	parse(&args)
-	load(&args, ".git-pr")
-	load_git()
+	util.GetFlags(&args, "pr")
 
-	t, _ := template.New("PR").Parse(args.Branch)
+	t, _ := template.New("pr").Parse(args.Branch)
 	b := bytes.NewBufferString("")
-	args.Branch = sh(`git`, `symbolic-ref`, `--short`, `HEAD`)
+	args.Branch = util.Sh(`git`, `symbolic-ref`, `--short`, `HEAD`)
 	t.Execute(b, args)
 	args.Branch = b.String()
 
@@ -272,7 +200,7 @@ func main() {
 	case "test":
 		git.test()
 	case "", "create":
-		sh(`git`, `push`, `-f`, args.remote, fmt.Sprintf("HEAD:%s", args.Branch))
+		util.Sh(`git`, `push`, `-f`, args.remote, fmt.Sprintf("HEAD:%s", args.Branch))
 		git.create()
 	default:
 		log.Panic(flag.Args())
