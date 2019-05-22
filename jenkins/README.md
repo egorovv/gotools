@@ -9,7 +9,7 @@ In velocloud workspace - $VCROOT
 
 ```
 export GOPATH=$VCROOT/dev/vadim/
-cd $GOPATH/src/govco
+cd $GOPATH/src/jenkins
 go get ./...
 
 ```
@@ -27,10 +27,10 @@ jenkins
   -token <api token>
   -user <user>
   -build <build no>
-  -files <file glog pattern - e.g. edge-imageupdate-EDGE5X0-*.zip>
+  -files <file glob pattern - e.g. edge-imageupdate-EDGE5X0-*.zip>
 ```
 
-The same options could be configured in ~/.jenkinsrc -n json format.
+The same options could be configured in ~/.jenkinsrc -in json format.
 
 
 ```

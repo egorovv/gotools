@@ -221,7 +221,7 @@ func main() {
 
 	args := Args{}
 
-	util.GetFlags(&args, "aws")
+	util.GetFlags(&args, "awsrc")
 
 	cred := credentials.NewStaticCredentials(args.AccessKey, args.SecretKey, "")
 	cfg := &aws.Config{

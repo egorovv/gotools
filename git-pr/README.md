@@ -1,7 +1,8 @@
 # git-pr - Git pull request posting tool
 
-Automatically creates pull request adding all the members of
-your favorite team (`vcdp`) as reviewers without having to use Web UI.
+Automatically creates pull request adding all the members of your
+favorite team (`velocloud/dp`) as reviewers without having to use Web
+UI.
 
 By default all the team members will be added as both reviewers and
 watchers, during the PR submission the selections could be ajusted.
@@ -12,12 +13,53 @@ plus).  The watchers - or @ mentions - will be notified but their
 input is not expected, although appreciated.
 
 So, dring the PR submission, the autor will reduce the list of
-reviewers (by deleting `Review-By` lines) but 
+reviewers (by deleting `Review-By` lines) but
+
+## Install
+
+This tool is written in Go - to build it you need a reasonably recent
+Go toolchain. `ap-get install golang` will likely suffice.
+
+In velocloud workspace - <vcroot>
+
+```
+export GOPATH=<vcroot>/dev/vadim/
+cd $GOPATH/src/git-pr
+go get ./...
+
+```
+
+If everything is fine this will result in a binary
+`<vcroot>/dev/vadim/bin/git-pr`, the resulting executable is self
+contained and usable on pretty much any x86_64 Linux.
+
+`<vcroot>/dev/vadim/bin/git-pr install` will create a git command alias
+that will allow to invoke this program as `git pr`.
+
+
+It is best to create an `app password` in your git account settings
+giving it the limited set of priviledges (Not sure exactly - read
+access to teams and write to pull request as a minimum)
+
+It will create an ugly token that you can place in ~/.bitbucket
+together with your user ID and your favorite team.
+
+```
+{
+    "user" : "john_doe",
+    "password" : "*********",
+    "team" : "vcdp"
+}
+```
+
+In case post-commit hook `dev/vadim/post-commit` is used it is
+necessary to configure the remote branch naming conversion.  Add
+`"branch" : "{{args.User}}/{{args.Branch}}"` to ~/.bitbucket json.
 
 
 ## Standard pull request
 
-If set up as described below, `bb pr` will create a PR draft and vill
+If set up as described below, `git pr` will create a PR draft and vill
 launch your default editor to allow to make changes if neccessary.
 
 The assumption is that the PR is created from the current branch in
@@ -81,47 +123,6 @@ the list of reviewers.  The `Notify:` line will remain n the PR
 description and the 'mention' email will be sent to those recipients
 (or any @ mention anywhere in the description).
 
-
-## Install
-
-This tool is written in Go - to build it you need a reasonably recent
-Go toolchain. `ap-get install golang` will likely suffice.
-
-In velocloud workspace - <vcroot>
-
-```
-export GOPATH=<vcroot>/dev/vadim/
-cd $GOPATH/src/git-pr
-go get ./...
-
-```
-
-If everything is fine this will result in a binary
-`<vcroot>/dev/vadim/bin/git-pr`, the resulting executable is self
-contained and usable on pretty much any x86_64 Linux.
-
-`<vcroot>/dev/vadim/bin/git-pr install` will create a git command alias
-that will allow to invoke this program as `git pr`.
-
-
-It is best to create an `app password` in your git account settings
-giving it the limited set of priviledges (Not sure exactly - read
-access to teams and write to pull request as a minimum)
-
-It will create an ugly token that you can place in ~/.bitbucket
-together with your user ID and your favorite team.
-
-```
-{
-    "user" : "john_doe",
-    "password" : "*********",
-    "team" : "vcdp"
-}
-```
-
-In case post-commit hook `dev/vadim/post-commit` is used it is
-necessary to configure the remote branch naming conversion.  Add
-`"branch" : "{{args.User}}/{{args.Branch}}"` to ~/.bitbucket json.
 
 
 

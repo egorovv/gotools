@@ -20,6 +20,7 @@ func LoadJsonFlags(a interface{}, fn string) {
 		return
 	}
 	path := path.Join(user.HomeDir, fn)
+	fmt.Printf("%s\n", path)
 
 	f := flag.Lookup("user")
 	if f != nil {
@@ -30,6 +31,7 @@ func LoadJsonFlags(a interface{}, fn string) {
 		defer f.Close()
 		p := json.NewDecoder(f)
 		p.Decode(a)
+		Dump("json:", a)
 	}
 }
 
@@ -65,7 +67,10 @@ func SaveGitFlags(s string) {
 }
 
 func ParseFlags(a interface{}) {
-	v := reflect.ValueOf(a).Elem()
+	v := reflect.ValueOf(a).Elem().Elem().Elem()
+	for v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+		v = v.Elem()
+	}
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -92,8 +97,8 @@ func ParseFlags(a interface{}) {
 }
 
 func GetFlags(a interface{}, name string) {
-	ParseFlags(&a)
 	LoadJsonFlags(&a, "."+name)
+	ParseFlags(&a)
 	LoadGitFlags(name)
 }
 
