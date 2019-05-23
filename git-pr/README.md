@@ -1,19 +1,8 @@
 # git-pr - Git pull request posting tool
 
-Automatically creates pull request adding all the members of your
-favorite team (`velocloud/dp`) as reviewers without having to use Web
-UI.
-
-By default all the team members will be added as both reviewers and
-watchers, during the PR submission the selections could be ajusted.
-
-By convention, the teammates in the reviewer list will be expected to
-go through the review and make a verdict (thoughtful comments are
-plus).  The watchers - or @ mentions - will be notified but their
-input is not expected, although appreciated.
-
-So, dring the PR submission, the autor will reduce the list of
-reviewers (by deleting `Review-By` lines) but
+Automatically creates pull request adding the members of your favorite
+team (`velocloud/dp`) as reviewers without having to use Web UI.
+With right label and stuff.
 
 ## Install
 
@@ -43,20 +32,27 @@ You need to create an `access token` in your git account settings -
 
 This will create a git command alias that will allow to invoke this
 program as `git pr`.
+The settings provided will be saved as defaults in  your `~/.gitconfig`.
 
 
 ## Standard pull request
 
 ```
 git checkout origin/master -b my-fix
-git commit | git cherry-pick <xyz>
+git commit
+git pr
+```
+or cherry pick
+```
+git checkout origin/release_3.2 -b my-backport
+git cherry-pick <xyz>
 git pr
 ```
 
 If set up as described above, `git pr` will create a PR draft and will
 launch your default editor to allow making changes if neccessary.
 
-The current branch will be pushed into the remote, and, merge request
+The current branch will be pushed into the remote, and merge request
 will be made from the remote btanch to upstream branch (`git
 --set-upstream-to=<upstream>`).
 
