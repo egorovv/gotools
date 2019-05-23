@@ -7,7 +7,8 @@ With right label and stuff.
 ## Install
 
 This tool is written in Go - to build it you need a reasonably recent
-Go toolchain. `ap-get install golang` will likely suffice.
+Go toolchain. The best way to get it is to obtain the latest master
+OpenWRT sdk with gettoolchain.py
 
 In velocloud workspace - <vcroot>
 
