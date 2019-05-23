@@ -20,18 +20,16 @@ func LoadJsonFlags(a interface{}, fn string) {
 		return
 	}
 	path := path.Join(user.HomeDir, fn)
-	fmt.Printf("%s\n", path)
 
 	f := flag.Lookup("user")
 	if f != nil {
-		f.Value.Set(user.Username)
+		flag.Set("user", user.Username)
 	}
 
 	if f, err := os.Open(path); err == nil {
 		defer f.Close()
 		p := json.NewDecoder(f)
 		p.Decode(a)
-		Dump("json:", a)
 	}
 }
 
@@ -60,6 +58,7 @@ func SaveGitFlags(s string) {
 	}
 
 	f := func(f *flag.Flag) {
+		log.Printf("set flag: %s %s", f.Name, f.Value.String())
 		Sh(`git`, `config`, `--global`,
 			s+`.`+f.Name, f.Value.String())
 	}
@@ -97,8 +96,8 @@ func ParseFlags(a interface{}) {
 }
 
 func GetFlags(a interface{}, name string) {
-	LoadJsonFlags(&a, "."+name)
 	ParseFlags(&a)
+	LoadJsonFlags(&a, "."+name)
 	LoadGitFlags(name)
 }
 

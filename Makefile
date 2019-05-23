@@ -8,5 +8,4 @@ GO ?= $(GOROOT)/bin/go
 export GOPATH = $(abspath ../..)
 
 all::
-	echo GOPATH=$(GOPATH)
 	$(GO) get ./...

@@ -23,9 +23,9 @@ Go toolchain. `ap-get install golang` will likely suffice.
 In velocloud workspace - <vcroot>
 
 ```
-export GOPATH=<vcroot>/dev/vadim/
-cd $GOPATH/src/git-pr
-go get ./...
+mkdir -p dev/vadim/src
+git clone git@gitlab.eng.vmware.com:egorovv/gotools dev/vadim/src/gotools
+make -C dev/vadim/src/gotools [SDK=<sdk> if not set in local.mk]
 
 ```
 
@@ -33,64 +33,32 @@ If everything is fine this will result in a binary
 `<vcroot>/dev/vadim/bin/git-pr`, the resulting executable is self
 contained and usable on pretty much any x86_64 Linux.
 
-`<vcroot>/dev/vadim/bin/git-pr install` will create a git command alias
-that will allow to invoke this program as `git pr`.
-
-
-It is best to create an `app password` in your git account settings
-giving it the limited set of priviledges (Not sure exactly - read
-access to teams and write to pull request as a minimum)
-
-It will create an ugly token that you can place in ~/.bitbucket
-together with your user ID and your favorite team.
+You need to create an `access token` in your git account settings -
+`setting/access tokens` - with api permissins.
 
 ```
-{
-    "user" : "john_doe",
-    "password" : "*********",
-    "team" : "vcdp"
-}
+<vcroot>/dev/vadim/bin/git-pr install --team velocloud/dp --owner velocloud \
+    --label engineering_dataplane --user <userid> --password <token>
 ```
 
-In case post-commit hook `dev/vadim/post-commit` is used it is
-necessary to configure the remote branch naming conversion.  Add
-`"branch" : "{{args.User}}/{{args.Branch}}"` to ~/.bitbucket json.
+This will create a git command alias that will allow to invoke this
+program as `git pr`.
 
 
 ## Standard pull request
 
-If set up as described below, `git pr` will create a PR draft and vill
-launch your default editor to allow to make changes if neccessary.
-
-The assumption is that the PR is created from the current branch in
-your workspace is created to follow `upstream` (`git --set-upstream-to=<upstream>`), 
-that this branch `branch` is already pushed into the remote,
-and that the PR is created to merge the `branch` into the `upstream`.
-
-These assumptions are satisfied if you created your topic branch off
-the target upstream branch. And then after committing your changes you
-pushed them upstream `git push`
-
 ```
 git checkout origin/master -b my-fix
-git commit
-git push
+git commit | git cherry-pick <xyz>
 git pr
 ```
 
+If set up as described above, `git pr` will create a PR draft and will
+launch your default editor to allow making changes if neccessary.
 
-They are also satisfied if you are using post-commit hook
-(`dev/vadim/post-commit`) that backs up the changes in your local branch
-by force-pushing them into a private upstream branch. In this case if
-you are working on `git checkout <branch>` and some changes have been
-committed locally, they are already pushed remotely as `<user>/<branch>`.
-
-e.g.
-```
-git checkout release_3.2
-git commit ...
-git pr
-```
+The current branch will be pushed into the remote, and, merge request
+will be made from the remote btanch to upstream branch (`git
+--set-upstream-to=<upstream>`).
 
 The PR draft consists of the PR title and description - it will be
 pre-poulated with the all commit description that your local branch
@@ -103,25 +71,20 @@ team members to notify prepopulated with your team members.
 # All lines starting with # will be removed. Of the remaining the first
 # line will be used as a title and the rest as description.
 #
-Short and descriptove subject
+Short and descriptive subject
 
 Long and helpful description.
 
 # This PR will be sent to the following recipients:
-Notify: @craigconnors @gopavelo @jordanrhody @kartik_vc
 Review-By: craigconnors <Craig Connors>
 Review-By: kartik_vc <Kartik Kamdar>
 ```
 
 You can modify the generated description to your liking, save and exit
 editor.  All the comment lines (starting with `#`) will be removed,
-the first line will be used as a PR title and thhe rest will
-constitute the PR description.
-
-Except all the lines starting with `Review-By: ` will be coverted to
-the list of reviewers.  The `Notify:` line will remain n the PR
-description and the 'mention' email will be sent to those recipients
-(or any @ mention anywhere in the description).
+the first line will be used as a PR title, Except all the lines
+starting with `Review-By: ` will be coverted to the list of reviewers
+and and the rest will constitute the PR description.
 
 
 
