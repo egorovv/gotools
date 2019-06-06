@@ -3,14 +3,11 @@ package main
 import (
 	"crypto/tls"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"gotools/util"
 	"io"
 	"net/http"
 	"os"
-	"os/user"
-	"path"
 	"path/filepath"
 
 	japi "github.com/yosida95/golang-jenkins"
@@ -78,22 +75,6 @@ type Args struct {
 	client  *http.Client
 }
 
-func load(a *Args) {
-	user, err := user.Current()
-	if err != nil {
-		return
-	}
-	a.User = user.Username
-
-	fn := path.Join(user.HomeDir, ".jenkinsrc")
-
-	if f, err := os.Open(fn); err == nil {
-		defer f.Close()
-		p := json.NewDecoder(f)
-		p.Decode(a)
-	}
-}
-
 func main() {
 
 	args := Args{
@@ -102,16 +83,6 @@ func main() {
 	}
 
 	util.GetFlags(&args, "jenkins")
-
-	flag.StringVar(&args.Cmd, "cmd", "get", "job name")
-	flag.StringVar(&args.Job, "job", args.Job, "job name")
-	flag.StringVar(&args.Files, "files", args.Files, "file pattern")
-	flag.IntVar(&args.Build, "build", args.Build, "build no")
-	flag.StringVar(&args.Host, "host", args.Host, "jenkins")
-	flag.StringVar(&args.User, "user", args.User, "user")
-	flag.StringVar(&args.Token, "token", args.Token, "token")
-	flag.BoolVar(&args.Verbose, "verbose", args.Verbose, "verbose")
-	flag.Parse()
 
 	auth := &japi.Auth{
 		Username: args.User,

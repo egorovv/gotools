@@ -92,13 +92,13 @@ func ParseFlags(a interface{}) {
 		}
 
 	}
-	flag.Parse()
 }
 
 func GetFlags(a interface{}, name string) {
 	ParseFlags(&a)
 	LoadJsonFlags(&a, "."+name)
 	LoadGitFlags(name)
+	flag.Parse()
 }
 
 func Sh(cmd string, arg ...string) string {

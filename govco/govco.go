@@ -274,7 +274,7 @@ func main() {
 	sshConn, err := c.Dial("tcp", "localhost:5002")
 
 	if err != nil {
-		log.Printf("bootstrapping")
+		log.Printf("%s bootstrapping", err)
 		ssh_run(c, "sed -i 's/AllowTcpForwarding no/AllowTcpForwarding yes/g' /etc/ssh/sshd_config")
 		ssh_run(c, "/etc/init.d/sshd restart")
 		c.Close()

@@ -131,7 +131,11 @@ func prepare(args Args, m []User) (fn string) {
 }
 
 func edit(fn string) (subj, desc string) {
-	cmd := exec.Command("/usr/bin/editor", fn)
+	editor, ok := os.LookupEnv("GIT_EDITOR")
+	if !ok {
+		editor = "/usr/bin/editor"
+	}
+	cmd := exec.Command(editor, fn)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
