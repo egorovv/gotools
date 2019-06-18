@@ -6,6 +6,7 @@
                 "cidrPrefix": "255.255.255.0",
                 "enabled": true,
                 "gateway": "10.0.0.1",
+                "vlanId": 1,
                 "insertionEnabled": null,
                 "logicalId": "bc45172d-396b-4815-ab79-187513f689a8",
                 "name": "Palo Alto237511508890315270",
