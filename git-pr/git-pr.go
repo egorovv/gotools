@@ -24,6 +24,7 @@ type Args struct {
 	Upstream string `json:"upstream,omitempty"`
 	Team     string `json:"team,omitempty"`
 	Label    string `json:"label,omitempty"`
+	Remove   bool   `json:"remove,omitempty"`
 	Verbose  bool   `json:"verbose"`
 	remote   string
 	args     []string
@@ -96,14 +97,14 @@ func prepare(args Args, m []User) (fn string) {
 # Upstream: {{ .Args.Upstream }}
 # Owner/Repo: {{ .Args.Owner }}/{{ .Args.Repo }}
 # Label: {{ .Args.Label }}
+# Label: {{ .Args.Label }}
+# Remove: {{ .Args.Remove }}
 #
 {{.Body}}
 
 @{{.Args.Team}}
 
 # This PR will be sent to the following recipients:
-# Review-By: add as a reviewer
-# Notify: list of @references to receive notifications
 {{range .Members }}#Review-By: {{ .Id }} <{{ .Name }}>
 {{end}}
 

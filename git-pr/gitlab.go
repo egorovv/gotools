@@ -72,6 +72,7 @@ type GitlabMergeRequest struct {
 	Title  string `json:"title"`
 	Descr  string `json:"description"`
 	Labels string `json:"labels"`
+	Remove bool   `json:"remove_source_branch"`
 }
 type GitlabMergeApprovers struct {
 	Id     int   `json:"id"`
@@ -91,6 +92,7 @@ func (g *Gitlab) submit(subj, desc string, ids []int) error {
 		Title:  subj,
 		Descr:  desc,
 		Labels: args.Label,
+		Remove: args.Remove,
 	}
 	path := fmt.Sprintf("projects/%s/merge_requests", proj)
 
