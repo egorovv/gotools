@@ -35,6 +35,7 @@ type Args struct {
 	Zone      string `json:"zone"`
 	AccessKey string `json:"access_key"`
 	SecretKey string `json:"secret_key"`
+	Verbose   bool   `json:"verbose"`
 }
 
 func load(a *Args) {
@@ -73,7 +74,7 @@ func parse(a *Args) {
 }
 
 func update_dns(sess *session.Session, args *Args, ip string) {
-	if ip == "" || args.Zone == "" {
+	if args.Zone == "" || ip == "" {
 		return
 	}
 
@@ -94,8 +95,40 @@ func update_dns(sess *session.Session, args *Args, ip string) {
 	}
 
 	if id == "" {
+		log.Printf("zone %s not found", args.Zone)
 		return
 	}
+
+	if args.Type == "-" || args.Type == "none" {
+		_, err = dns.ChangeResourceRecordSets(
+			&route53.ChangeResourceRecordSetsInput{
+				ChangeBatch: &route53.ChangeBatch{
+					Changes: []*route53.Change{
+						{
+							Action: aws.String("DELETE"),
+							ResourceRecordSet: &route53.ResourceRecordSet{
+								Name: aws.String(args.Name + "." + args.Zone),
+								Type: aws.String("A"),
+								TTL:  aws.Int64(30),
+								ResourceRecords: []*route53.ResourceRecord{
+									{
+										Value: aws.String(ip),
+									},
+								},
+							},
+						},
+					},
+				},
+				HostedZoneId: aws.String(id),
+			})
+
+		if err != nil {
+			log.Printf("Error %s", err)
+			return
+		}
+	}
+
+	log.Printf("Updating record %s: %s", args.Name+"."+args.Zone, ip)
 
 	_, err = dns.ChangeResourceRecordSets(
 		&route53.ChangeResourceRecordSetsInput{
@@ -125,7 +158,7 @@ func update_dns(sess *session.Session, args *Args, ip string) {
 	}
 }
 
-func cleanup(args Args, svc *ec2.EC2) {
+func cleanup(args Args, svc *ec2.EC2) (ip string) {
 
 	filter := []*ec2.Filter{
 		&ec2.Filter{
@@ -151,7 +184,10 @@ func cleanup(args Args, svc *ec2.EC2) {
 
 		for _, r := range desc.Reservations {
 			for _, i := range r.Instances {
-				log.Printf("Cleaning up %s", *i.InstanceId)
+				if i.PublicIpAddress != nil {
+					ip = *i.PublicIpAddress
+				}
+				log.Printf("Cleaning up %s: %s", *i.InstanceId, ip)
 				ids = append(ids, i.InstanceId)
 				for _, n := range i.NetworkInterfaces {
 					nids = append(nids, n.NetworkInterfaceId)
@@ -188,6 +224,7 @@ func cleanup(args Args, svc *ec2.EC2) {
 		})
 		log.Printf("Cleaning up %s => %s", *n.NetworkInterfaceId, err)
 	}
+	return
 }
 
 func add_nic(args Args, svc *ec2.EC2, inst *string) (nic *string) {
@@ -223,6 +260,10 @@ func main() {
 
 	util.GetFlags(&args, "awsrc")
 
+	if args.Verbose {
+		util.Dump("args", args)
+	}
+
 	cred := credentials.NewStaticCredentials(args.AccessKey, args.SecretKey, "")
 	cfg := &aws.Config{
 		Region:      aws.String(args.Region),
@@ -231,7 +272,12 @@ func main() {
 	sess := session.Must(session.NewSession(cfg))
 	svc := ec2.New(sess)
 
-	cleanup(args, svc)
+	oldip := cleanup(args, svc)
+
+	if args.Type == "-" || args.Type == "none" {
+		update_dns(sess, &args, oldip)
+		return
+	}
 
 	params := &ec2.RunInstancesInput{
 		ImageId:      aws.String(args.Image),

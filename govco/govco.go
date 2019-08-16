@@ -263,7 +263,11 @@ func main() {
 		config.Auth = append(config.Auth, ssh.PublicKeys(idRsa))
 	}
 
-	addr := fmt.Sprintf("%s:22", args.host)
+	addr := args.host
+	if !strings.Contains(addr, ":") {
+		addr = addr + ":22"
+	}
+
 	log.Printf("connecting %s", addr)
 	c, err := ssh.Dial("tcp", addr, config)
 	if err != nil {

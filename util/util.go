@@ -42,7 +42,7 @@ func LoadGitFlags(s string) {
 	}
 
 	f := func(f *flag.Flag) {
-		if val, ok := git[s+`.`+f.Name]; ok {
+		if val, ok := git[s+`.`+strings.Replace(f.Name, "_", "-", -1)]; ok {
 			flag.Set(f.Name, val)
 		}
 	}
@@ -60,7 +60,7 @@ func SaveGitFlags(s string) {
 	f := func(f *flag.Flag) {
 		log.Printf("set flag: %s %s", f.Name, f.Value.String())
 		Sh(`git`, `config`, `--global`,
-			s+`.`+f.Name, f.Value.String())
+			s+`.`+strings.Replace(f.Name, "_", "-", -1), f.Value.String())
 	}
 	flag.Visit(f)
 }
