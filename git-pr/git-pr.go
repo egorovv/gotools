@@ -16,18 +16,22 @@ import (
 )
 
 type Args struct {
-	Owner    string `json:"owner,omitempty"`
-	Repo     string `json:"repo,omitempty"`
-	User     string `json:"user,omitempty"`
-	Password string `json:"password,omitempty"`
-	Branch   string `json:"branch,omitempty"`
-	Upstream string `json:"upstream,omitempty"`
-	Team     string `json:"team,omitempty"`
-	Label    string `json:"label,omitempty"`
-	Remove   bool   `json:"remove,omitempty"`
-	Verbose  bool   `json:"verbose"`
-	remote   string
-	args     []string
+	Owner        string `json:"owner,omitempty"`
+	Repo         string `json:"repo,omitempty"`
+	User         string `json:"user,omitempty"`
+	Password     string `json:"password,omitempty"`
+	Branch       string `json:"branch,omitempty"`
+	Upstream     string `json:"upstream,omitempty"`
+	Team         string `json:"team,omitempty"`
+	Label        string `json:"label,omitempty"`
+	Remove       bool   `json:"remove,omitempty"`
+	Verbose      bool   `json:"verbose"`
+	JenkinsHost  string `json:"jenkins-host"`
+	JenkinsToken string `json:"jenkins-token"`
+	JenkinsJob   string `json:"jenkins-job"`
+	JenkinsSuite string `json:"jenkins-suite"`
+	remote       string
+	args         []string
 }
 
 type User struct {
@@ -66,21 +70,44 @@ func strip(s string) string {
 	return regex.ReplaceAllString(s, "")
 }
 
-func reviewers(s string) (m []User, desc string) {
-	regex, err := regexp.Compile(`(?m)^Review-By:.*$`)
+func trailers(s string) (elts map[string][]string, desc string) {
+	elts = make(map[string][]string)
+	pattern := fmt.Sprintf(`(?m)^[a-zA-Z-]+: .*$`)
+	regex, err := regexp.Compile(pattern)
 	if err != nil {
 		log.Panic(err)
 	}
-	users := regex.FindAllString(s, -1)
-	for _, user := range users {
-		u := User{Id: strings.Fields(user)[1]}
-		m = append(m, u)
+	lines := regex.FindAllString(s, -1)
+	for _, l := range lines {
+		parts := strings.SplitN(l, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		vals, _ := elts[parts[0]]
+		vals = append(vals, strings.TrimSpace(parts[1]))
+		elts[parts[0]] = vals
 	}
 	desc = strings.TrimSpace(regex.ReplaceAllString(s, ""))
 	return
 }
 
-func prepare(args Args, m []User) (fn string) {
+func trailer(meta map[string][]string, key string) (val string) {
+	if len(meta[key]) > 1 {
+		val = meta[key][0]
+	}
+	return
+}
+
+func reviewers(footers map[string][]string) (m []User) {
+	users, _ := footers["Review-by"]
+	for _, user := range users {
+		u := User{Id: strings.Fields(user)[0]}
+		m = append(m, u)
+	}
+	return
+}
+
+func prepare(args *Args, m []User) (fn string) {
 
 	text := util.Sh(`git`, `log`, `--reverse`, `@{u}..`, `--pretty= - %B`)
 	text = text[2:]
@@ -91,20 +118,25 @@ func prepare(args Args, m []User) (fn string) {
 # All lines starting with # will be removed. Of the remaining the first
 # line will be used as a title and the rest as description.
 # Subject starting with ! will cause the oeration to abort.
+# You can comment/uncomment trailers at the end to control
+# extra actions
 #
 # User: {{ .Args.User }}
 # Branch: {{ .Args.Branch }}
 # Upstream: {{ .Args.Upstream }}
 # Owner/Repo: {{ .Args.Owner }}/{{ .Args.Repo }}
-# Label: {{ .Args.Label }}
-# Label: {{ .Args.Label }}
 # Remove: {{ .Args.Remove }}
+# Label: {{ .Args.Label }}
 #
 {{.Body}}
 
-@{{.Args.Team}}
+Notify @{{.Args.Team}}
 
-# This PR will be sent to the following recipients:
+####### trailers ##########
+# This PR will trigger the following test
+#Jenkins-Suite: {{.Args.JenkinsSuite}}
+
+# This PR will add the following users to approvers
 {{range .Members }}#Review-By: {{ .Id }} <{{ .Name }}>
 {{end}}
 
@@ -113,7 +145,7 @@ func prepare(args Args, m []User) (fn string) {
 	data := struct {
 		Body    string
 		Members []User
-		Args    Args
+		Args    *Args
 	}{
 		Body:    text,
 		Members: m,
@@ -178,8 +210,11 @@ func git_detect(args *Args) {
 
 func main() {
 	args := Args{
-		Team:   "velocloud/dp",
-		Branch: "{{.Branch}}",
+		Team:         "velocloud/dp",
+		Branch:       "{{.Branch}}",
+		JenkinsHost:  "jenkins2.eng.velocloud.net",
+		JenkinsJob:   "devtest-pvt-branch-validator",
+		JenkinsSuite: "bronze",
 	}
 
 	git_detect(&args)
@@ -195,11 +230,13 @@ func main() {
 	if len(flag.Args()) > 0 {
 		args.args = flag.Args()[1:]
 	}
-	git := NewGitlab(args)
+	git := NewGitlab(&args)
 
 	switch flag.Arg(0) {
 	case "install":
 		install(args)
+	case "jenkins":
+		jenkinsJob(&args, args.JenkinsSuite)
 	case "merge":
 		git.merge()
 	case "test":

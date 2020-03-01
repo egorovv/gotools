@@ -7,16 +7,17 @@ import (
 	"gotools/util"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 
 	japi "github.com/yosida95/golang-jenkins"
 )
 
-func dump(v interface{}) {
+func dump(v interface{}) string {
 
 	out, _ := json.MarshalIndent(v, "", " ")
-	fmt.Printf("%s\n", out)
+	return fmt.Sprintf("%s", out)
 }
 
 type Progress struct {
@@ -89,8 +90,6 @@ func main() {
 		ApiToken: args.Token,
 	}
 
-	fmt.Printf("auth %s:%s\n", args.User, args.Token)
-
 	baseurl := fmt.Sprintf("https://%s/", args.Host)
 	jenkins := japi.NewJenkins(auth, baseurl)
 
@@ -122,9 +121,19 @@ func main() {
 	}
 
 	if args.Cmd == "build" {
-		err := jenkins.Build(j, nil)
+		params := url.Values{
+			"PVT_BRANCH_NAME":          []string{"feature-egorovv-queue"},
+			"TESTBED_IP":               []string{"DEFAULT"},
+			"Open_Wrt":                 []string{"openwrt-sdk-master-x64"},
+			"VCO_IMAGE":                []string{"vco-system-images-daily"},
+			"SUITE_TO_RUN":             []string{"bronze"},
+			"CICD_KEYPAIR":             []string{"egorovv"},
+			"CICD_TESTBED_EXPIRE_TIME": []string{"2029-10-09"},
+			"STOP_ON_FAIL":             []string{"on"},
+		}
+		err := jenkins.Build(j, params)
 		if err != nil {
-			fmt.Printf("error getting build %d : %s\n", args.Build, err)
+			fmt.Printf("error starting job %s : %s\n", dump(j), err)
 		}
 		return
 	}

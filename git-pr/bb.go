@@ -46,7 +46,7 @@ type PullRequestMerge struct {
 	Strategy string `json:"merge_strategy"`
 }
 
-func (b *Bb) members(r *rest.Rest, args Args) (users []User) {
+func (b *Bb) members(r *rest.Rest, args *Args) (users []User) {
 
 	if args.Team == "" {
 		return
@@ -83,7 +83,8 @@ func (b *Bb) create() {
 
 	for {
 		subj, desc := edit(fn)
-		users, desc = reviewers(desc)
+		meta, desc := trailers(desc)
+		users := reviewers(meta)
 		if strings.HasPrefix(subj, "!") {
 			return
 		}
@@ -145,10 +146,10 @@ func (b *Bb) test() {
 }
 
 type Bb struct {
-	args Args
+	args *Args
 }
 
-func bb(args Args) Git {
+func bb(args *Args) Git {
 	return &Bb{
 		args: args,
 	}

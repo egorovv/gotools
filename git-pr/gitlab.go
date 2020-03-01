@@ -10,12 +10,12 @@ import (
 )
 
 type Gitlab struct {
-	args Args
+	args *Args
 	r    *rest.Rest
 	url  string
 }
 
-func NewGitlab(args Args) Git {
+func NewGitlab(args *Args) Git {
 	g := Gitlab{}
 	g.args = args
 	g.url = "https://git.eng.vmware.com/api/v4/"
@@ -74,6 +74,14 @@ type GitlabMergeRequest struct {
 	Labels string `json:"labels"`
 	Remove bool   `json:"remove_source_branch"`
 }
+
+type GitlabMR struct {
+	Id        int    `json:"id"`
+	Iid       int    `json:"iid"`
+	ProjectId int    `json:"project_id"`
+	Url       string `json:"web_url"`
+}
+
 type GitlabMergeApprovers struct {
 	Id     int   `json:"id"`
 	Iid    int   `json:"iid"`
@@ -81,7 +89,13 @@ type GitlabMergeApprovers struct {
 	Groups []int `json:"approver_group_ids",omitempty`
 }
 
-func (g *Gitlab) submit(subj, desc string, ids []int) error {
+type GitlabMergeComment struct {
+	Id   int    `json:"id"`
+	Iid  int    `json:"iid"`
+	Body string `json:"body"`
+}
+
+func (g *Gitlab) submit(subj, desc string, ids []int) (mri GitlabMR, err error) {
 
 	args := g.args
 	proj := url.QueryEscape(args.Owner + "/" + args.Repo)
@@ -101,12 +115,6 @@ func (g *Gitlab) submit(subj, desc string, ids []int) error {
 		log.Panic(err)
 	}
 
-	mri := struct {
-		Id        int    `json:"id"`
-		Iid       int    `json:"iid"`
-		ProjectId int    `json:"project_id"`
-		Url       string `json:"web_url"`
-	}{}
 	unpack(resp[0], &mri)
 	dump("mr:", &mri)
 	mra := GitlabMergeApprovers{
@@ -123,8 +131,25 @@ func (g *Gitlab) submit(subj, desc string, ids []int) error {
 	if err != nil {
 		log.Panic(err)
 	}
+	return
+}
 
-	return err
+func (g *Gitlab) comment(mri GitlabMR, body string) {
+
+	path := fmt.Sprintf("projects/%d/merge_requests/%d/notes",
+		mri.ProjectId, mri.Iid)
+
+	note := GitlabMergeComment{
+		Id:   mri.Id,
+		Iid:  mri.Iid,
+		Body: body,
+	}
+
+	resp, err := g.Post(path, &note)
+	if err != nil {
+		log.Panic(err)
+	}
+	dump("resp", resp)
 }
 
 func (g *Gitlab) create() {
@@ -144,7 +169,9 @@ func (g *Gitlab) create() {
 		if strings.HasPrefix(subj, "!") {
 			return
 		}
-		users, desc = reviewers(desc)
+
+		meta, desc := trailers(desc)
+		users := reviewers(meta)
 
 		ids := []int{}
 		for _, u := range users {
@@ -155,7 +182,17 @@ func (g *Gitlab) create() {
 				}
 			}
 		}
-		if g.submit(subj, desc, ids) == nil {
+
+		g.args.Label = ""
+		mri, err := g.submit(subj, desc, ids)
+		if err == nil {
+			suite := trailer(meta, "Jenkins-Suite")
+			if suite != "" {
+				url, err := jenkinsJob(g.args, suite)
+				if err == nil {
+					g.comment(mri, url)
+				}
+			}
 			break
 		}
 	}

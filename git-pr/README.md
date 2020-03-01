@@ -1,8 +1,14 @@
 # git-pr - Git pull request posting tool
 
 Automatically creates pull request adding the members of your favorite
-team (`velocloud/dp`) as reviewers without having to use Web UI.
-With right label and stuff.
+team (`velocloud/dp`) as reviewers without having to use Web UI.  With
+right label and stuff. It can also launch jenkis regression job on
+your branch.
+
+The behaviour is controlled by configuration/command-line options and
+'trailers' - `Review-By: xxx` or `Jenkins-Suite: vpn` markup at the
+end of the MR description.
+
 
 ## Install
 
@@ -34,6 +40,25 @@ You need to create an `access token` in your git account settings -
 This will create a git command alias that will allow to invoke this
 program as `git pr`.
 The settings provided will be saved as defaults in  your `~/.gitconfig`.
+
+## Jenkins integration
+
+After MR submission a jenkins job (by default
+`devtest-pvt-branch-validator`) can be launched to run regression
+tests. A comment will be added to MR to record the link to the job.
+
+To enable jenkins integration - an api token needs to be set up in
+your jenkins account - `your account - Configure - API token - Add new
+token`.
+
+The token can be supplied during install (or invocation) using
+`--jenkins-token` 
+
+`--jenkins-suite` option control the testsuite that will be run -
+'bronze' is the default, it can be adjusted during MR creation via
+`Jenkins-Suite:` trailer
+
+
 
 
 ## Standard pull request
@@ -80,7 +105,7 @@ Review-By: kartik_vc <Kartik Kamdar>
 You can modify the generated description to your liking, save and exit
 editor.  All the comment lines (starting with `#`) will be removed,
 the first line will be used as a PR title, Except all the lines
-starting with `Review-By: ` will be coverted to the list of reviewers
+starting with `Review-by: ` will be coverted to the list of reviewers
 and and the rest will constitute the PR description.
 
 

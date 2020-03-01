@@ -195,10 +195,11 @@ func rpc_read(c io.Reader) []byte {
 	sz := binary.BigEndian.Uint32(data[:])
 
 	resp := make([]byte, sz)
-	_, err := c.Read(resp)
+	_, err := io.ReadAtLeast(c, resp, int(sz))
 	if err != nil {
 		log.Fatalf("error: %s", err)
 	}
+
 	return resp
 }
 

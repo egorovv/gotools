@@ -35,6 +35,7 @@ type Args struct {
 	Zone      string `json:"zone"`
 	AccessKey string `json:"access_key"`
 	SecretKey string `json:"secret_key"`
+	Token     string `json:"token"`
 	Verbose   bool   `json:"verbose"`
 }
 
@@ -80,23 +81,20 @@ func update_dns(sess *session.Session, args *Args, ip string) {
 
 	dns := route53.New(sess)
 
-	zone, err := dns.ListHostedZones(&route53.ListHostedZonesInput{})
+	zones, err := dns.ListHostedZonesByName(
+		&route53.ListHostedZonesByNameInput{
+			DNSName: &args.Zone,
+		})
 	if err != nil {
 		log.Printf("Error %s", err)
 		return
 	}
 
-	var id string = ""
-	for _, z := range zone.HostedZones {
+	id := ""
+	for _, z := range zones.HostedZones {
 		if *z.Name == args.Zone {
 			id = *z.Id
-			break
 		}
-	}
-
-	if id == "" {
-		log.Printf("zone %s not found", args.Zone)
-		return
 	}
 
 	if args.Type == "-" || args.Type == "none" {
@@ -128,7 +126,8 @@ func update_dns(sess *session.Session, args *Args, ip string) {
 		}
 	}
 
-	log.Printf("Updating record %s: %s", args.Name+"."+args.Zone, ip)
+	name := args.Name + "." + strings.TrimRight(args.Zone, ".")
+	log.Printf("Updating record %s : %s", name, ip)
 
 	_, err = dns.ChangeResourceRecordSets(
 		&route53.ChangeResourceRecordSetsInput{
@@ -264,7 +263,8 @@ func main() {
 		util.Dump("args", args)
 	}
 
-	cred := credentials.NewStaticCredentials(args.AccessKey, args.SecretKey, "")
+	cred := credentials.NewStaticCredentials(
+		args.AccessKey, args.SecretKey, args.Token)
 	cfg := &aws.Config{
 		Region:      aws.String(args.Region),
 		Credentials: cred,
@@ -279,6 +279,48 @@ func main() {
 		return
 	}
 
+	if !strings.HasPrefix(args.Image, "ami") {
+		di := ec2.DescribeImagesInput{
+			Filters: []*ec2.Filter{
+				&ec2.Filter{
+					Name: aws.String("tag:Name"),
+					Values: []*string{
+						&args.Name,
+					},
+				},
+			},
+		}
+		res, err := svc.DescribeImages(&di)
+		if err != nil {
+			log.Printf("Could not find image %s", err)
+			return
+		}
+		args.Image = *res.Images[0].ImageId
+	}
+
+	tags := []*ec2.Tag{
+		&ec2.Tag{
+			Key:   aws.String("Name"),
+			Value: aws.String(args.Name),
+		},
+		&ec2.Tag{
+			Key:   aws.String("Owner"),
+			Value: aws.String(args.Owner),
+		},
+		&ec2.Tag{
+			Key:   aws.String("auto:start"),
+			Value: aws.String("* * * * *"),
+		},
+		&ec2.Tag{
+			Key:   aws.String("Active"),
+			Value: aws.String("True"),
+		},
+		&ec2.Tag{
+			Key:   aws.String("Expire"),
+			Value: aws.String("2029-09-23"),
+		},
+	}
+
 	params := &ec2.RunInstancesInput{
 		ImageId:      aws.String(args.Image),
 		InstanceType: aws.String(args.Type),
@@ -287,10 +329,24 @@ func main() {
 		KeyName:      aws.String(args.Key),
 		NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
 			&ec2.InstanceNetworkInterfaceSpecification{
-				AssociatePublicIpAddress: aws.Bool(true),
-				SubnetId:                 aws.String(args.Subnet),
-				DeviceIndex:              aws.Int64(0),
-				Groups:                   []*string{aws.String(args.Group)},
+				//AssociatePublicIpAddress: aws.Bool(true),
+				SubnetId:    aws.String(args.Subnet),
+				DeviceIndex: aws.Int64(0),
+				Groups:      []*string{aws.String(args.Group)},
+			},
+		},
+		TagSpecifications: []*ec2.TagSpecification{
+			&ec2.TagSpecification{
+				ResourceType: aws.String("instance"),
+				Tags:         tags,
+			},
+		},
+		BlockDeviceMappings: []*ec2.BlockDeviceMapping{
+			&ec2.BlockDeviceMapping{
+				DeviceName: aws.String("/dev/sda1"),
+				Ebs: &ec2.EbsBlockDevice{
+					VolumeSize: aws.Int64(500),
+				},
 			},
 		},
 	}
@@ -322,43 +378,30 @@ func main() {
 		}
 		if *desc.Reservations[0].Instances[0].State.Code > 0 {
 			fmt.Printf("%s\n", desc)
-			ip = *desc.Reservations[0].Instances[0].PublicIpAddress
+			if desc.Reservations[0].Instances[0].PublicIpAddress != nil {
+				ip = *desc.Reservations[0].Instances[0].PublicIpAddress
+			} else {
+				ip = *desc.Reservations[0].Instances[0].PrivateIpAddress
+			}
 			log.Printf("Created instance %s: %s", instanceID, ip)
 			break
 		}
 		time.Sleep(time.Second)
 	}
 
-	// Add tags to the instance
-	tags := &ec2.CreateTagsInput{
-		Resources: []*string{
-			&instanceID,
-		},
-		Tags: []*ec2.Tag{
-			&ec2.Tag{
-				Key:   aws.String("Name"),
-				Value: aws.String(args.Name),
-			},
-			&ec2.Tag{
-				Key:   aws.String("Owner"),
-				Value: aws.String(args.Owner),
-			},
-			&ec2.Tag{
-				Key:   aws.String("auto:start"),
-				Value: aws.String("* * * * *"),
-			},
-		},
-	}
-
 	nic := add_nic(args, svc, inst.InstanceId)
 
 	if nic != nil {
-		tags.Resources = append(tags.Resources, nic)
-	}
-
-	_, err = svc.CreateTags(tags)
-	if err != nil {
-		log.Printf("Could not create tags for instance %s : %s", instanceID, err)
+		tags := &ec2.CreateTagsInput{
+			Resources: []*string{
+				nic,
+			},
+			Tags: tags,
+		}
+		_, err = svc.CreateTags(tags)
+		if err != nil {
+			log.Printf("Could not create tags for instance %s : %s", instanceID, err)
+		}
 	}
 
 	update_dns(sess, &args, ip)
