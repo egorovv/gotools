@@ -30,6 +30,7 @@ type Args struct {
 	JenkinsToken string `json:"jenkins-token"`
 	JenkinsJob   string `json:"jenkins-job"`
 	JenkinsSuite string `json:"jenkins-suite"`
+	JenkinsKey   string `json:"jenkins-key"`
 	remote       string
 	args         []string
 }
@@ -92,14 +93,14 @@ func trailers(s string) (elts map[string][]string, desc string) {
 }
 
 func trailer(meta map[string][]string, key string) (val string) {
-	if len(meta[key]) > 1 {
+	if len(meta[key]) > 0 {
 		val = meta[key][0]
 	}
 	return
 }
 
-func reviewers(footers map[string][]string) (m []User) {
-	users, _ := footers["Review-by"]
+func reviewers(meta map[string][]string) (m []User) {
+	users, _ := meta["Review-By"]
 	for _, user := range users {
 		u := User{Id: strings.Fields(user)[0]}
 		m = append(m, u)
@@ -108,7 +109,8 @@ func reviewers(footers map[string][]string) (m []User) {
 }
 
 var commentBody = `
-Test suite "{{.Args.JenkinsSuite}}" is here
+"{{.Args.JenkinsSuite}}" test suite results -
+
 {{.Body}}
 
 `
@@ -127,7 +129,6 @@ var requestBody = `#
 # Upstream: {{ .Args.Upstream }}
 # Owner/Repo: {{ .Args.Owner }}/{{ .Args.Repo }}
 # Remove: {{ .Args.Remove }}
-# Label: {{ .Args.Label }}
 #
 {{.Body}}
 
@@ -136,8 +137,9 @@ Notify @{{.Args.Team}}
 Brought to you by git-pr
 [https://gitlab.eng.vmware.com/egorovv/gotools/tree/master/git-pr]
 ####### trailers ##########
+Gitlab-Label: {{ .Args.Label }}
 # This PR will trigger the following test
-#Jenkins-Suite: {{.Args.JenkinsSuite}}
+Jenkins-Suite: {{.Args.JenkinsSuite}}
 
 # This PR will add the following users to approvers
 {{range .Members }}#Review-By: {{ .Id }} <{{ .Name }}>

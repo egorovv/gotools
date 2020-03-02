@@ -146,11 +146,10 @@ func (g *Gitlab) comment(mri GitlabMR, url string) {
 		Body: body,
 	}
 
-	resp, err := g.Post(path, &note)
+	_, err := g.Post(path, &note)
 	if err != nil {
 		log.Panic(err)
 	}
-	dump("resp", resp)
 }
 
 func (g *Gitlab) create() {
@@ -173,6 +172,8 @@ func (g *Gitlab) create() {
 		}
 
 		meta, desc := trailers(desc)
+		args.Label = trailer(meta, "Gitlab-Label")
+		args.JenkinsSuite = trailer(meta, "Jenkins-Suite")
 		users := reviewers(meta)
 
 		ids := []int{}
@@ -185,10 +186,8 @@ func (g *Gitlab) create() {
 			}
 		}
 
-		args.Label = ""
 		mri, err := g.submit(subj, desc, ids)
 		if err == nil {
-			args.JenkinsSuite = trailer(meta, "Jenkins-Suite")
 			if args.JenkinsSuite != "" {
 				url, err := jenkinsJob(args)
 				if err == nil {

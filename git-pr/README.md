@@ -30,12 +30,13 @@ If everything is fine this will result in a binary
 contained and usable on pretty much any x86_64 Linux.
 
 You need to create an `access token` in your git account settings -
-`setting/access tokens` - with api permissins.
+`setting/access tokens` - with api permissions. See below foe
+additioonal Jenkins integration setup.
 
 ```
 <vcroot>/dev/vadim/bin/git-pr install --team velocloud/dp --owner velocloud \
     --label engineering_dataplane --user <userid> --password <token>  \
-    --jenkins-token <jtoken>
+    --jenkins-token <jtoken> --jenkins-key <keypair>
 
 ```
 
@@ -60,6 +61,8 @@ The token can be supplied during install (or invocation) using
 'bronze' is the default, it can be adjusted during MR creation via
 `Jenkins-Suite:` trailer
 
+`--jenkins-key` option specifies AWS keypair the test setup will be
+deployed with, the default - unset - is to use the curren user id.
 
 
 ## Standard pull request
