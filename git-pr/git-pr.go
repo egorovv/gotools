@@ -267,6 +267,7 @@ func main() {
 	case "install":
 		install(args)
 	case "jenkins":
+		util.Sh(`git`, `push`, `-f`, args.remote, fmt.Sprintf("HEAD:%s", args.Branch))
 		jenkinsJob(&args)
 	case "merge":
 		git.merge()

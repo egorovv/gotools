@@ -64,6 +64,11 @@ The token can be supplied during install (or invocation) using
 `--jenkins-key` option specifies AWS keypair the test setup will be
 deployed with, the default - unset - is to use the curren user id.
 
+As a side-effect - a job could be launched without pusting an MR using 
+```
+git pr jenkins [--jenkins-suite <suite>]
+```
+
 
 ## Standard pull request
 
