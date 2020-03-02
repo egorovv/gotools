@@ -34,7 +34,9 @@ You need to create an `access token` in your git account settings -
 
 ```
 <vcroot>/dev/vadim/bin/git-pr install --team velocloud/dp --owner velocloud \
-    --label engineering_dataplane --user <userid> --password <token>
+    --label engineering_dataplane --user <userid> --password <token>  \
+    --jenkins-token <jtoken>
+
 ```
 
 This will create a git command alias that will allow to invoke this
@@ -57,7 +59,6 @@ The token can be supplied during install (or invocation) using
 `--jenkins-suite` option control the testsuite that will be run -
 'bronze' is the default, it can be adjusted during MR creation via
 `Jenkins-Suite:` trailer
-
 
 
 
@@ -97,6 +98,8 @@ Short and descriptive subject
 
 Long and helpful description.
 
+# This PR will trigger the following test
+#Jenkins-Suite: {{.Args.JenkinsSuite}}
 # This PR will be sent to the following recipients:
 Review-By: craigconnors <Craig Connors>
 Review-By: kartik_vc <Kartik Kamdar>
@@ -105,7 +108,7 @@ Review-By: kartik_vc <Kartik Kamdar>
 You can modify the generated description to your liking, save and exit
 editor.  All the comment lines (starting with `#`) will be removed,
 the first line will be used as a PR title, Except all the lines
-starting with `Review-by: ` will be coverted to the list of reviewers
+starting with `Review-By: ` will be coverted to the list of reviewers
 and and the rest will constitute the PR description.
 
 

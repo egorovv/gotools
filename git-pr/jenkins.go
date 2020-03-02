@@ -9,7 +9,7 @@ import (
 	"github.com/bndr/gojenkins"
 )
 
-func jenkinsJob(args *Args, suite string) (url string, err error) {
+func jenkinsJob(args *Args) (url string, err error) {
 	baseurl := fmt.Sprintf("https://%s/", args.JenkinsHost)
 
 	tr := &http.Transport{
@@ -29,7 +29,7 @@ func jenkinsJob(args *Args, suite string) (url string, err error) {
 	params := map[string]string{
 		"PVT_BRANCH_NAME": args.Branch,
 		"CICD_KEYPAIR":    args.User,
-		"SUITE_TO_RUN":    suite,
+		"SUITE_TO_RUN":    args.JenkinsSuite,
 	}
 	id, err := job.InvokeSimple(params)
 	if err != nil {

@@ -134,7 +134,8 @@ func (g *Gitlab) submit(subj, desc string, ids []int) (mri GitlabMR, err error) 
 	return
 }
 
-func (g *Gitlab) comment(mri GitlabMR, body string) {
+func (g *Gitlab) comment(mri GitlabMR, url string) {
+	body := expand(g.args, commentBody, url)
 
 	path := fmt.Sprintf("projects/%d/merge_requests/%d/notes",
 		mri.ProjectId, mri.Iid)
@@ -153,15 +154,16 @@ func (g *Gitlab) comment(mri GitlabMR, body string) {
 }
 
 func (g *Gitlab) create() {
+	args := g.args
 	members := g.members()
 	users := []User{}
 	for _, u := range members {
-		if u.Id != g.args.User {
+		if u.Id != args.User {
 			users = append(users, User{Id: u.Id, Name: u.Name})
 		}
 	}
 
-	fn := prepare(g.args, users)
+	fn := prepare(args, users)
 	defer os.Remove(fn)
 
 	for {
@@ -183,12 +185,12 @@ func (g *Gitlab) create() {
 			}
 		}
 
-		g.args.Label = ""
+		args.Label = ""
 		mri, err := g.submit(subj, desc, ids)
 		if err == nil {
-			suite := trailer(meta, "Jenkins-Suite")
-			if suite != "" {
-				url, err := jenkinsJob(g.args, suite)
+			args.JenkinsSuite = trailer(meta, "Jenkins-Suite")
+			if args.JenkinsSuite != "" {
+				url, err := jenkinsJob(args)
 				if err == nil {
 					g.comment(mri, url)
 				}

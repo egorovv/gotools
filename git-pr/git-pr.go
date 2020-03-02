@@ -107,12 +107,13 @@ func reviewers(footers map[string][]string) (m []User) {
 	return
 }
 
-func prepare(args *Args, m []User) (fn string) {
+var commentBody = `
+Test suite "{{.Args.JenkinsSuite}}" is here
+{{.Body}}
 
-	text := util.Sh(`git`, `log`, `--reverse`, `@{u}..`, `--pretty= - %B`)
-	text = text[2:]
+`
 
-	t, err := template.New("PR").Parse(`#
+var requestBody = `#
 # Edit pull request title and description, remove starting '!'.
 #
 # All lines starting with # will be removed. Of the remaining the first
@@ -132,6 +133,8 @@ func prepare(args *Args, m []User) (fn string) {
 
 Notify @{{.Args.Team}}
 
+Brought to you by git-pr
+[https://gitlab.eng.vmware.com/egorovv/gotools/tree/master/git-pr]
 ####### trailers ##########
 # This PR will trigger the following test
 #Jenkins-Suite: {{.Args.JenkinsSuite}}
@@ -140,7 +143,33 @@ Notify @{{.Args.Team}}
 {{range .Members }}#Review-By: {{ .Id }} <{{ .Name }}>
 {{end}}
 
-`)
+`
+
+func expand(args *Args, body, text string) string {
+	t, err := template.New("COMMENT").Parse(body)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	data := struct {
+		Body string
+		Args *Args
+	}{
+		Body: text,
+		Args: args,
+	}
+
+	buf := bytes.NewBufferString("")
+	err = t.Execute(buf, data)
+	return buf.String()
+}
+
+func prepare(args *Args, m []User) (fn string) {
+
+	text := util.Sh(`git`, `log`, `--reverse`, `@{u}..`, `--pretty= - %B`)
+	text = text[2:]
+
+	t, err := template.New("PR").Parse(requestBody)
 
 	data := struct {
 		Body    string
@@ -236,7 +265,7 @@ func main() {
 	case "install":
 		install(args)
 	case "jenkins":
-		jenkinsJob(&args, args.JenkinsSuite)
+		jenkinsJob(&args)
 	case "merge":
 		git.merge()
 	case "test":
