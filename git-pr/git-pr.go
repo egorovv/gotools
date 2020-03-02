@@ -73,7 +73,7 @@ func strip(s string) string {
 
 func trailers(s string) (elts map[string][]string, desc string) {
 	elts = make(map[string][]string)
-	pattern := fmt.Sprintf(`(?m)^[a-zA-Z-]+: .*$`)
+	pattern := fmt.Sprintf(`(?m)^[A-Z][a-z]+-[A-Z][a-z]+: .*$`)
 	regex, err := regexp.Compile(pattern)
 	if err != nil {
 		log.Panic(err)
@@ -113,6 +113,10 @@ var commentBody = `
 
 {{.Body}}
 
+---
+
+Brought to you by git-pr
+[https://gitlab.eng.vmware.com/egorovv/gotools/tree/master/git-pr]
 `
 
 var requestBody = `#
@@ -134,8 +138,6 @@ var requestBody = `#
 
 Notify @{{.Args.Team}}
 
-Brought to you by git-pr
-[https://gitlab.eng.vmware.com/egorovv/gotools/tree/master/git-pr]
 ####### trailers ##########
 Gitlab-Label: {{ .Args.Label }}
 # This PR will trigger the following test

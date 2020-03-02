@@ -167,11 +167,11 @@ func (g *Gitlab) create() {
 
 	for {
 		subj, desc := edit(fn)
+		meta, desc := trailers(desc)
 		if strings.HasPrefix(subj, "!") {
 			return
 		}
 
-		meta, desc := trailers(desc)
 		args.Label = trailer(meta, "Gitlab-Label")
 		args.JenkinsSuite = trailer(meta, "Jenkins-Suite")
 		users := reviewers(meta)
