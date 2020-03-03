@@ -37,6 +37,14 @@ func (g *Gitlab) Get(path string) []map[string]interface{} {
 	return x
 }
 
+func (g *Gitlab) Query(path string, query url.Values) ([]map[string]interface{}, error) {
+	x, err := g.r.Do("GET", g.url+path, query, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+	return x, err
+}
+
 func (g *Gitlab) Post(path string, data interface{}) ([]map[string]interface{}, error) {
 	return g.request("POST", path, data)
 }
@@ -199,6 +207,32 @@ func (g *Gitlab) create() {
 	}
 }
 
-func (g *Gitlab) merge() {
+func (g *Gitlab) jenkins() {
+	args := g.args
+	proj := url.QueryEscape(args.Owner + "/" + args.Repo)
 
+	query := url.Values{
+		"state":         []string{"opened"},
+		"source_branch": []string{args.Branch},
+		"target_branch": []string{args.Upstream},
+	}
+	path := fmt.Sprintf("projects/%s/merge_requests", proj)
+
+	mri := GitlabMR{}
+
+	resp, err := g.Query(path, query)
+	if err != nil || len(resp) != 1 {
+		log.Panic("no mr %s", err)
+	}
+
+	unpack(resp[0], &mri)
+	if args.JenkinsSuite != "" {
+		url, err := jenkinsJob(args)
+		if err == nil {
+			g.comment(mri, url)
+		}
+	}
+}
+
+func (g *Gitlab) merge() {
 }

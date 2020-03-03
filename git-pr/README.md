@@ -34,9 +34,10 @@ You need to create an `access token` in your git account settings -
 additioonal Jenkins integration setup.
 
 ```
-<vcroot>/dev/vadim/bin/git-pr install --team velocloud/dp --owner velocloud \
+<vcroot>/dev/vadim/bin/git-pr --team velocloud/dp --owner velocloud \
     --label engineering_dataplane --user <userid> --password <token>  \
-    --jenkins-token <jtoken> --jenkins-key <keypair>
+    --jenkins-token <jtoken> --jenkins-key <keypair> \
+    install
 
 ```
 
@@ -66,7 +67,7 @@ deployed with, the default - unset - is to use the curren user id.
 
 As a side-effect - a job could be launched without pusting an MR using 
 ```
-git pr jenkins [--jenkins-suite <suite>]
+git pr [--jenkins-suite <suite> ... ] jenkins 
 ```
 
 

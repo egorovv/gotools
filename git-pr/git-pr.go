@@ -42,6 +42,7 @@ type User struct {
 
 type Git interface {
 	create()
+	jenkins()
 	merge()
 	test()
 }
@@ -114,7 +115,6 @@ var commentBody = `
 {{.Body}}
 
 ---
-
 Brought to you by git-pr
 [https://gitlab.eng.vmware.com/egorovv/gotools/tree/master/git-pr]
 `
@@ -243,16 +243,18 @@ func git_detect(args *Args) {
 
 func main() {
 	args := Args{
-		Team:         "velocloud/dp",
-		Branch:       "{{.Branch}}",
-		JenkinsHost:  "jenkins2.eng.velocloud.net",
-		JenkinsJob:   "devtest-pvt-branch-validator",
-		JenkinsSuite: "bronze",
+		Team:        "velocloud/dp",
+		Branch:      "{{.Branch}}",
+		JenkinsHost: "jenkins2.eng.velocloud.net",
+		JenkinsJob:  "devtest-pvt-branch-validator",
 	}
 
 	git_detect(&args)
 
 	util.GetFlags(&args, "pr")
+	if len(flag.Args()) > 0 {
+		args.args = flag.Args()[1:]
+	}
 
 	t, _ := template.New("pr").Parse(args.Branch)
 	b := bytes.NewBufferString("")
@@ -260,9 +262,6 @@ func main() {
 	t.Execute(b, args)
 	args.Branch = b.String()
 
-	if len(flag.Args()) > 0 {
-		args.args = flag.Args()[1:]
-	}
 	git := NewGitlab(&args)
 
 	switch flag.Arg(0) {
@@ -270,7 +269,7 @@ func main() {
 		install(args)
 	case "jenkins":
 		util.Sh(`git`, `push`, `-f`, args.remote, fmt.Sprintf("HEAD:%s", args.Branch))
-		jenkinsJob(&args)
+		git.jenkins()
 	case "merge":
 		git.merge()
 	case "test":
