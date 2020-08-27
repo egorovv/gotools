@@ -2,8 +2,7 @@ TOPDIR=../../../..
 
 include $(TOPDIR)/mk/top.mk
 
-GOROOT ?= $(SDK)/staging_dir/host/go
-GO ?= $(GOROOT)/bin/go
+GO ?= go
 
 export GOPATH = $(abspath ../..)
 
