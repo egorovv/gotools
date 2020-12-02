@@ -257,7 +257,7 @@ func main() {
 
 	args := Args{}
 
-	util.GetFlags(&args, "awsrc")
+	util.GetFlags(&args, "aws")
 
 	if args.Verbose {
 		util.Dump("args", args)
