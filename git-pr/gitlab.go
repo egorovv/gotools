@@ -59,9 +59,10 @@ func (g *Gitlab) test() {
 }
 
 type GitlabUser struct {
-	Uid  int    `json:"id"`
-	Id   string `json:"username"`
-	Name string `json:"name"`
+	Uid   int    `json:"id"`
+	Id    string `json:"username"`
+	Name  string `json:"name"`
+	State string `json:"state"`
 }
 
 func (g *Gitlab) members() (users []GitlabUser) {
@@ -165,7 +166,7 @@ func (g *Gitlab) create() {
 	members := g.members()
 	users := []User{}
 	for _, u := range members {
-		if u.Id != args.User {
+		if u.Id != args.User && u.State != "blocked" {
 			users = append(users, User{Id: u.Id, Name: u.Name})
 		}
 	}
