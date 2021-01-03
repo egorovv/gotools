@@ -182,6 +182,7 @@ func (g *Gitlab) create() {
 		}
 
 		args.Label = trailer(meta, "Gitlab-Label")
+		args.Remove = (trailer(meta, "Gitlab-Remove") != "")
 		args.JenkinsSuite = trailer(meta, "Jenkins-Suite")
 		users := reviewers(meta)
 

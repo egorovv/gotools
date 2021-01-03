@@ -239,6 +239,8 @@ func git_detect(args *Args) {
 	args.Upstream = upstream[1]
 	args.Owner = repo[0]
 	args.Repo = strings.TrimSuffix(repo[1], ".git")
+
+	args.Branch = util.Sh(`git`, `symbolic-ref`, `--short`, `HEAD`)
 }
 
 func main() {
@@ -255,12 +257,6 @@ func main() {
 	if len(flag.Args()) > 0 {
 		args.args = flag.Args()[1:]
 	}
-
-	t, _ := template.New("pr").Parse(args.Branch)
-	b := bytes.NewBufferString("")
-	args.Branch = util.Sh(`git`, `symbolic-ref`, `--short`, `HEAD`)
-	t.Execute(b, args)
-	args.Branch = b.String()
 
 	git := NewGitlab(&args)
 
