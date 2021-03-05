@@ -143,7 +143,7 @@ func (g *Gitlab) submit(subj, desc string, ids []int) (mri GitlabMR, err error) 
 	return
 }
 
-func (g *Gitlab) comment(mri GitlabMR, url string) {
+func (g *Gitlab) comment(mri *GitlabMR, url string) {
 	body := expand(g.args, commentBody, url)
 
 	path := fmt.Sprintf("projects/%d/merge_requests/%d/notes",
@@ -201,7 +201,7 @@ func (g *Gitlab) create() {
 			if args.JenkinsSuite != "" {
 				url, err := jenkinsJob(args)
 				if err == nil {
-					g.comment(mri, url)
+					g.comment(&mri, url)
 				}
 			}
 			break
@@ -209,7 +209,7 @@ func (g *Gitlab) create() {
 	}
 }
 
-func (g *Gitlab) jenkins() {
+func (g *Gitlab) mr() *GitlabMR {
 	args := g.args
 	proj := url.QueryEscape(args.Owner + "/" + args.Repo)
 
@@ -224,10 +224,18 @@ func (g *Gitlab) jenkins() {
 
 	resp, err := g.Query(path, query)
 	if err != nil || len(resp) != 1 {
-		log.Panic("no mr %s", err)
+		return nil
+		//log.Panic("no mr %s", err)
 	}
 
 	unpack(resp[0], &mri)
+	return &mri
+}
+
+func (g *Gitlab) jenkins() {
+	args := g.args
+	mri := g.mr()
+
 	if args.JenkinsSuite != "" {
 		url, err := jenkinsJob(args)
 		if err == nil {
@@ -237,4 +245,6 @@ func (g *Gitlab) jenkins() {
 }
 
 func (g *Gitlab) merge() {
+	mri := g.mr()
+	dump("mr:", mri)
 }

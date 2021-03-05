@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 
 	japi "github.com/yosida95/golang-jenkins"
@@ -54,7 +55,9 @@ func GetArtifact(args *Args, jenkins *japi.Jenkins, build japi.Build, artifact j
 		size: int(res.ContentLength),
 	}
 
-	f, err := os.Create(artifact.FileName)
+	fn := path.Join(args.Out, artifact.FileName)
+
+	f, err := os.Create(fn)
 	if err != nil {
 		return nil
 	}
@@ -73,6 +76,7 @@ type Args struct {
 	Files   string `json:"files"`
 	Build   int    `json:"build"`
 	Verbose bool   `json:"verbose"`
+	Out     string `json:"out"`
 	client  *http.Client
 }
 
