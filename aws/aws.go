@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"gotools/util"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -37,6 +39,7 @@ type Args struct {
 	SecretKey string `json:"secret_key"`
 	Token     string `json:"token"`
 	Verbose   bool   `json:"verbose"`
+	UserData  string `json:"user_data"`
 }
 
 func load(a *Args) {
@@ -349,6 +352,12 @@ func main() {
 				},
 			},
 		},
+	}
+
+	if args.UserData != "" {
+		str, _ := ioutil.ReadFile(args.UserData)
+		str = []byte(base64.StdEncoding.EncodeToString(str))
+		params.UserData = aws.String(string(str))
 	}
 
 	runResult, err := svc.RunInstances(params)
