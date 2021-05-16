@@ -3,14 +3,14 @@ tmezone: "America/Los_Angeles"
 package_upgrade: false
 preserve_hostname: false
 manage_etc_hosts: true
-hostname: egorovv2004
-fqdn: egorovv2004.eng.velocloud.net
+hostname: {{ .Name }}
+fqdn: {{ .Name }}.{{ .Zone }}
 
 system_info:
   default_user:
-    name: egorovv
+    name: vegorov
     ssh_authorized_keys:
-      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDWfkKewI6n7mO4UNGg/vKwkC/dUcOnzUsygvyeUTlyL5FH1hmR7Dn+Ax+c2VNBHEQuPJupVeEmQ7uBOw+X+hLl8je35GCuPQL1otqPs1TYnMx7gSBYK1BgmbxgQ0uU693QSMeFJtlRMEUYXtPXF6qpA33XSU3+4vHNIfb48CeDnwn9sAvlZs7MgPbUGC7+R+twjgTHT4vIJGdwZdAJc6JARBmfyFPikC7Dlo3QHBIbk9NP2DlRWRobm2sG27MFgneY+whc9+jVWjOKqXwIzZrxBXK5Q30dHwrG6YLxYwh9fAVrF19n/334nygdhhlmGHJLbpXZUZe0oV7/97T1QRbD vegorov@htb-1n-eng-dhcp431.eng.vmware.com
+      - ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGK8UCSHwOQzOIyytTqVOP1fNBqrgbwrcmPLmxUbtSo68EVvMDP22U0O4sBObPkjBD8u6O2RmjsNE6MKGF9U+F4=
 
 package_update: true
 apt_sources:
@@ -20,20 +20,11 @@ packages:
   - emacs27
   - tigervnc-standalone-server
   - icewm
-
-write_files:
-- content: |
-    W1VuaXRdCkRlc2NyaXB0aW9uPVN0YXJ0IFZOQyBTZXJ2ZXIgYXQgc3RhcnR1cApBZnRlcj1zeXNs
-    b2cudGFyZ2V0IG5ldHdvcmsudGFyZ2V0CgpbU2VydmljZV0KVHlwZT1mb3JraW5nClVzZXI9JWkK
-    V29ya2luZ0RpcmVjdG9yeT0vaG9tZS8laQpQSURGaWxlPS9ob21lLyVpLy52bmMvJUg6MS5waWQK
-    RXhlY1N0YXJ0UHJlPS0vdXNyL2Jpbi92bmNzZXJ2ZXIgLWtpbGwgOjEgPiAvZGV2L251bGwgMj4m
-    MQpFeGVjU3RhcnQ9L3Vzci9iaW4vdm5jc2VydmVyIDoxIC1nZW9tZXRyeSAxOTIweDEwODAgLWxv
-    Y2FsaG9zdCBubwpFeGVjU3RvcD0vdXNyL2Jpbi92bmNzZXJ2ZXIgLWtpbGwgOjEKCltJbnN0YWxs
-    XQpXYW50ZWRCeT1tdWx0aS11c2VyLnRhcmdldAo=
-  path: /etc/systemd/system/vncserver@.service
-  owner: root:root
-  permissions: '0644'
-  encoding: base64
+  - xfce4-terminal
+  - build-essential
+  - global
+  - docker.io
+  - mc
 
 #runcmd:
 #  - sudo su 

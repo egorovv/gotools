@@ -35,10 +35,22 @@ func LoadJsonFlags(a interface{}, fn string) {
 
 func LoadGitFlags(s string) {
 	git := map[string]string{}
-	config := Sh(`git`, `config`, `-l`)
-	for _, line := range strings.Split(config, "\n") {
-		parts := strings.SplitN(line, `=`, 2)
-		git[parts[0]] = parts[1]
+
+	user, err := user.Current()
+	if err != nil {
+		return
+	}
+
+	path := []string{
+		path.Join(user.HomeDir, `.gitconfig`),
+		path.Join(user.HomeDir, `.gitcred`),
+	}
+	for _, fn := range path {
+		config := Sh(`git`, `config`, `-l`, `-f`, fn)
+		for _, line := range strings.Split(config, "\n") {
+			parts := strings.SplitN(line, `=`, 2)
+			git[parts[0]] = parts[1]
+		}
 	}
 
 	f := func(f *flag.Flag) {

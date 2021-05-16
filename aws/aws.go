@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -13,6 +14,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"text/template"
 	"time"
 	"unsafe"
 
@@ -355,8 +357,15 @@ func main() {
 	}
 
 	if args.UserData != "" {
-		str, _ := ioutil.ReadFile(args.UserData)
-		str = []byte(base64.StdEncoding.EncodeToString(str))
+		str, err := ioutil.ReadFile(args.UserData)
+		if err != nil {
+			log.Printf("Bad user_data %s: %s", args.UserData, err)
+			return
+		}
+		t, err := template.New("").Parse(string(str))
+		var b bytes.Buffer
+		err = t.Execute(&b, args)
+		str = []byte(base64.StdEncoding.EncodeToString(b.Bytes()))
 		params.UserData = aws.String(string(str))
 	}
 

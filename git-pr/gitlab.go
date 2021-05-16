@@ -196,14 +196,8 @@ func (g *Gitlab) create() {
 			}
 		}
 
-		mri, err := g.submit(subj, desc, ids)
+		_, err := g.submit(subj, desc, ids)
 		if err == nil {
-			if args.JenkinsSuite != "" {
-				url, err := jenkinsJob(args)
-				if err == nil {
-					g.comment(&mri, url)
-				}
-			}
 			break
 		}
 	}
@@ -233,15 +227,6 @@ func (g *Gitlab) mr() *GitlabMR {
 }
 
 func (g *Gitlab) jenkins() {
-	args := g.args
-	mri := g.mr()
-
-	if args.JenkinsSuite != "" {
-		url, err := jenkinsJob(args)
-		if err == nil {
-			g.comment(mri, url)
-		}
-	}
 }
 
 func (g *Gitlab) merge() {
