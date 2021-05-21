@@ -4,7 +4,6 @@ package_upgrade: false
 preserve_hostname: false
 manage_etc_hosts: true
 hostname: {{ .Name }}
-fqdn: {{ .Name }}.{{ .Zone }}
 
 system_info:
   default_user:
@@ -25,5 +24,7 @@ packages:
   - global
   - docker.io
   - mc
-  - net-tools
-  - gdb
+
+#runcmd:
+#  - sudo su
+#  - echo 'Congratulations on configuring an AWS web server! ' > /var/www/html/index.nginx-debian.html

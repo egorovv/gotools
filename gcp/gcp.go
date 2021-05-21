@@ -1,28 +1,70 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"gotools/util"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
+	"text/template"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v1"
-	"google.golang.org/api/googleapi"
+	"google.golang.org/api/dns/v1"
 )
 
 type Args struct {
-	Verbose      bool
+	Verbose      bool   `json:"verbose"`
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 	Project      string `json:"project"`
+	Region       string `json:"region"`
 	Name         string `json:"name"`
-	Zone         string `json:"zone"`
 	Image        string `json:"image"`
 	Network      string `json:"network"`
-	Subnetwork   string `json:"subnet"`
+	Subnet       string `json:"subnet"`
+	Type         string `json:"type"`
+	UserData     string `json:"user_data"`
+	Zone         string `json:"zone"`
+	SshKey       string `json:"ssh_key"`
+	service      *compute.Service
+	client       *http.Client
+}
+
+func wait(args *Args, op *compute.Operation, err error) {
+	for err != nil {
+		log.Fatalf("%s", err)
+	}
+	service := args.service
+	log.Printf("waiting %s", op)
+	_, err = service.ZoneOperations.Wait(args.Project, args.Region, op.Name).Do()
+
+	if err != nil {
+		log.Fatalf("%s", err)
+	}
+}
+
+func updateDNS(args *Args, ip string) {
+
+	d, err := dns.New(args.client)
+
+	z, err := d.ManagedZones.Get(args.Project, args.Zone).Do()
+
+	rs := dns.ResourceRecordSet{
+		Name:    args.Name + "." + z.DnsName,
+		Type:    "A",
+		Ttl:     300,
+		Rrdatas: []string{ip},
+	}
+
+	_, err = d.Projects.ManagedZones.Rrsets.Delete(args.Project, args.Zone, rs.Name, rs.Type).Do()
+	log.Printf("deleting %s - %s", rs.Name, err)
+	_, err = d.Projects.ManagedZones.Rrsets.Create(args.Project, args.Zone, &rs).Do()
+	log.Printf("creating %s - %s", rs.Name, err)
 }
 
 func create(client *http.Client, args *Args) {
@@ -30,33 +72,45 @@ func create(client *http.Client, args *Args) {
 	if err != nil {
 		log.Fatalf("Unable to create Compute service: %v", err)
 	}
+	args.service = service
 
-	projectID := args.Project
-	instanceName := args.Name
-
-	prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
-	imageURL := "https://www.googleapis.com/compute/v1/projects/debian-cloud/global/images/debian-7-wheezy-v20140606"
-	zone := args.Zone
-
-	// Show the current images that are available.
-	res, err := service.Images.List(projectID).Do()
-	for _, i := range res.Items {
-		log.Printf("Instance %s", *i)
+	inst, err := service.Instances.Get(args.Project, args.Region, args.Name).Do()
+	if err == nil {
+		log.Printf("Cleaning up instance %s", inst)
+		op, err := service.Instances.Delete(args.Project, args.Region, args.Name).Do()
+		wait(args, op, err)
 	}
-	return
 
-	instance := &compute.Instance{
+	user_data := ""
+	if args.UserData != "" {
+		str, err := ioutil.ReadFile(args.UserData)
+		if err != nil {
+			log.Printf("Bad user_data %s: %s", args.UserData, err)
+			return
+		}
+		t, err := template.New("").Parse(string(str))
+		var b bytes.Buffer
+		err = t.Execute(&b, args)
+		user_data = string(b.String())
+		log.Printf("user data %s", user_data)
+	}
+
+	image := fmt.Sprintf("projects/ubuntu-os-cloud/global/images/%s", args.Image)
+	strtrue := "true"
+	inst = &compute.Instance{
 		Name:        args.Name,
-		Description: "cle created",
-		MachineType: prefix + "/zones/" + args.Zone + "/machineTypes/n1-standard-1",
+		Description: fmt.Sprintf("%s-%s", args.Name, args.Image),
+		MachineType: fmt.Sprintf("projects/%s/zones/%s/machineTypes/%s",
+			args.Project, args.Region, args.Type),
+		Zone: fmt.Sprintf("projects/%s/zones/%s", args.Project, args.Region),
 		Disks: []*compute.AttachedDisk{
 			{
 				AutoDelete: true,
 				Boot:       true,
-				Type:       "PERSISTENT",
 				InitializeParams: &compute.AttachedDiskInitializeParams{
-					DiskName:    "my-root-pd",
-					SourceImage: imageURL,
+					DiskType:    "projects/npa-development/zones/us-west1-b/diskTypes/pd-ssd",
+					SourceImage: image,
+					DiskSizeGb:  200,
 				},
 			},
 		},
@@ -68,32 +122,33 @@ func create(client *http.Client, args *Args) {
 						Name: "External NAT",
 					},
 				},
-				Network: prefix + "/global/networks/default",
+				Subnetwork: fmt.Sprintf("projects/ns-npe-shared-vpc/regions/us-west1/subnetworks/%s", args.Subnet),
 			},
 		},
-		ServiceAccounts: []*compute.ServiceAccount{
-			{
-				Email: "default",
-				Scopes: []string{
-					compute.DevstorageFullControlScope,
-					compute.ComputeScope,
+		Metadata: &compute.Metadata{
+			Items: []*compute.MetadataItems{
+				&compute.MetadataItems{
+					Key:   "user-data",
+					Value: &user_data,
+				},
+				&compute.MetadataItems{
+					Key:   "block-project-ssh-keys",
+					Value: &strtrue,
 				},
 			},
 		},
 	}
 
-	op, err := service.Instances.Insert(projectID, zone, instance).Do()
-	log.Printf("Got compute.Operation, err: %#v, %v", op, err)
-	etag := op.Header.Get("Etag")
-	log.Printf("Etag=%v", etag)
+	log.Printf("crating instance %s", args.Name)
+	op, err := service.Instances.Insert(args.Project, args.Region, inst).Do()
+	wait(args, op, err)
 
-	inst, err := service.Instances.Get(projectID, zone, instanceName).IfNoneMatch(etag).Do()
-	log.Printf("Got compute.Instance, err: %#v, %v", inst, err)
-	if googleapi.IsNotModified(err) {
-		log.Printf("Instance not modified since insert.")
-	} else {
-		log.Printf("Instance modified since insert.")
-	}
+	inst, err = service.Instances.Get(args.Project, args.Region, args.Name).Do()
+
+	log.Printf("instance ip %s - %s",
+		inst.NetworkInterfaces[0].NetworkIP,
+		inst.NetworkInterfaces[0].AccessConfigs[0].NatIP, inst)
+	updateDNS(args, inst.NetworkInterfaces[0].NetworkIP)
 }
 
 func main() {
@@ -106,8 +161,9 @@ func main() {
 	}
 
 	scopes := strings.Join([]string{
-		compute.DevstorageFullControlScope,
-		compute.ComputeScope,
+		//compute.DevstorageFullControlScope,
+		compute.CloudPlatformScope,
+		dns.CloudPlatformScope,
 	}, " ")
 
 	config := &oauth2.Config{
@@ -119,6 +175,6 @@ func main() {
 
 	ctx := context.Background()
 	c := newOAuthClient(ctx, config)
-
+	args.client = c
 	create(c, &args)
 }
