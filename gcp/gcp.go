@@ -95,14 +95,18 @@ func create(client *http.Client, args *Args) {
 		log.Printf("user data %s", user_data)
 	}
 
+	//type := "e2-custom-8-16384"
 	image := fmt.Sprintf("projects/ubuntu-os-cloud/global/images/%s", args.Image)
-	strtrue := "true"
+	startup := "chmod a+rwt /tmp"
 	inst = &compute.Instance{
 		Name:        args.Name,
 		Description: fmt.Sprintf("%s-%s", args.Name, args.Image),
 		MachineType: fmt.Sprintf("projects/%s/zones/%s/machineTypes/%s",
 			args.Project, args.Region, args.Type),
 		Zone: fmt.Sprintf("projects/%s/zones/%s", args.Project, args.Region),
+		Tags: &compute.Tags{
+			Items: []string{"vegorov"},
+		},
 		Disks: []*compute.AttachedDisk{
 			{
 				AutoDelete: true,
@@ -122,7 +126,11 @@ func create(client *http.Client, args *Args) {
 						Name: "External NAT",
 					},
 				},
-				Subnetwork: fmt.Sprintf("projects/ns-npe-shared-vpc/regions/us-west1/subnetworks/%s", args.Subnet),
+				Subnetwork: "projects/npa-development/regions/us-west1/subnetworks/vpc-npa-priv-vpn-subnet",
+			},
+			{
+				Subnetwork: "projects/ns-npe-shared-vpc/regions/us-west1/subnetworks/shared-vpc-ns-usw1",
+				//Subnetwork: "projects/npa-development/regions/us-west1/subnetworks/default"
 			},
 		},
 		Metadata: &compute.Metadata{
@@ -132,8 +140,8 @@ func create(client *http.Client, args *Args) {
 					Value: &user_data,
 				},
 				&compute.MetadataItems{
-					Key:   "block-project-ssh-keys",
-					Value: &strtrue,
+					Key:   "startup-script",
+					Value: &startup,
 				},
 			},
 		},
@@ -148,7 +156,7 @@ func create(client *http.Client, args *Args) {
 	log.Printf("instance ip %s - %s",
 		inst.NetworkInterfaces[0].NetworkIP,
 		inst.NetworkInterfaces[0].AccessConfigs[0].NatIP, inst)
-	updateDNS(args, inst.NetworkInterfaces[0].NetworkIP)
+	updateDNS(args, inst.NetworkInterfaces[0].AccessConfigs[0].NatIP)
 }
 
 func main() {
