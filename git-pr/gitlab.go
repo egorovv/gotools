@@ -183,7 +183,6 @@ func (g *Gitlab) create() {
 
 		args.Label = trailer(meta, "Gitlab-Label")
 		args.Remove = (trailer(meta, "Gitlab-Remove") != "")
-		args.JenkinsSuite = trailer(meta, "Jenkins-Suite")
 		users := reviewers(meta)
 
 		ids := []int{}
@@ -224,9 +223,6 @@ func (g *Gitlab) mr() *GitlabMR {
 
 	unpack(resp[0], &mri)
 	return &mri
-}
-
-func (g *Gitlab) jenkins() {
 }
 
 func (g *Gitlab) merge() {

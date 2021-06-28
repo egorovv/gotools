@@ -145,9 +145,6 @@ func (b *Bb) merge() {
 func (b *Bb) test() {
 }
 
-func (b *Bb) jenkins() {
-}
-
 type Bb struct {
 	args *Args
 }

@@ -99,7 +99,7 @@ func (c *Rest) Do(method string, url string, query url.Values,
 	for url != "" {
 		res, h, err := c.request(method, url, query, data)
 
-		if h["Link"] != nil {
+		if len(res) > 0 && res[0] == '[' {
 			e := []map[string]interface{}{}
 			err = json.Unmarshal(res, &e)
 			if err != nil {

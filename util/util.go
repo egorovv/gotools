@@ -54,8 +54,10 @@ func LoadGitFlags(s string) {
 	}
 
 	f := func(f *flag.Flag) {
-		if val, ok := git[s+`.`+strings.Replace(f.Name, "_", "-", -1)]; ok {
+		key := s + `.` + strings.Replace(f.Name, "_", "-", -1)
+		if val, ok := git[key]; ok {
 			flag.Set(f.Name, val)
+			f.DefValue = val
 		}
 	}
 	flag.VisitAll(f)

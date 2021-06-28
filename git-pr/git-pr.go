@@ -16,23 +16,19 @@ import (
 )
 
 type Args struct {
-	Owner        string `json:"owner,omitempty"`
-	Repo         string `json:"repo,omitempty"`
-	User         string `json:"user,omitempty"`
-	Password     string `json:"password,omitempty"`
-	Branch       string `json:"branch,omitempty"`
-	Upstream     string `json:"upstream,omitempty"`
-	Team         string `json:"team,omitempty"`
-	Label        string `json:"label,omitempty"`
-	Remove       bool   `json:"remove,omitempty"`
-	Verbose      bool   `json:"verbose"`
-	JenkinsHost  string `json:"jenkins-host"`
-	JenkinsToken string `json:"jenkins-token"`
-	JenkinsJob   string `json:"jenkins-job"`
-	JenkinsSuite string `json:"jenkins-suite"`
-	JenkinsKey   string `json:"jenkins-key"`
-	remote       string
-	args         []string
+	Git      string `json:"git,omitempty"`
+	Owner    string `json:"owner,omitempty"`
+	Repo     string `json:"repo,omitempty"`
+	User     string `json:"user,omitempty"`
+	Password string `json:"password,omitempty"`
+	Branch   string `json:"branch,omitempty"`
+	Upstream string `json:"upstream,omitempty"`
+	Team     string `json:"team,omitempty"`
+	Label    string `json:"label,omitempty"`
+	Remove   bool   `json:"remove,omitempty"`
+	Verbose  bool   `json:"verbose"`
+	remote   string
+	args     []string
 }
 
 type User struct {
@@ -42,7 +38,6 @@ type User struct {
 
 type Git interface {
 	create()
-	jenkins()
 	merge()
 	test()
 }
@@ -245,10 +240,7 @@ func git_detect(args *Args) {
 
 func main() {
 	args := Args{
-		Team:        "velocloud/dp",
-		Branch:      "{{.Branch}}",
-		JenkinsHost: "jenkins2.eng.velocloud.net",
-		JenkinsJob:  "devtest-pvt-branch-validator",
+		Branch: "{{.Branch}}",
 	}
 
 	git_detect(&args)
@@ -258,14 +250,21 @@ func main() {
 		args.args = flag.Args()[1:]
 	}
 
-	git := NewGitlab(&args)
+	if args.Verbose {
+		dump("args:", &args)
+	}
+
+	var git Git
+	switch args.Git {
+	case "github":
+		git = NewGithub(&args)
+	case "gitlab":
+		git = NewGitlab(&args)
+	}
 
 	switch flag.Arg(0) {
 	case "install":
 		install(args)
-	case "jenkins":
-		util.Sh(`git`, `push`, `-f`, args.remote, fmt.Sprintf("HEAD:%s", args.Branch))
-		git.jenkins()
 	case "merge":
 		git.merge()
 	case "test":
