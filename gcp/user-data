@@ -20,11 +20,12 @@ packages:
   - tigervnc-standalone-server
   - icewm
   - xfce4-terminal
-  - build-essential
   - global
   - docker.io
   - mc
+  - build-essential
+  - libssl-dev
+  - golang-go
 
 #runcmd:
 #  - sudo su
-#  - echo 'Congratulations on configuring an AWS web server! ' > /var/www/html/index.nginx-debian.html

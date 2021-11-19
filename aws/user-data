@@ -24,6 +24,7 @@ packages:
   - build-essential
   - global
   - docker.io
+  - docker-compose
   - mc
   - net-tools
   - gdb

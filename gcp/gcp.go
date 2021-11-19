@@ -120,17 +120,18 @@ func create(client *http.Client, args *Args) {
 		},
 		NetworkInterfaces: []*compute.NetworkInterface{
 			{
+				//Subnetwork: "projects/npa-development/regions/us-west1/subnetworks/vpc-npa-priv-subnet",
+				Subnetwork: "projects/ns-npe-shared-vpc/regions/us-west1/subnetworks/shared-vpc-ns-usw1",
+				//Subnetwork: "projects/npa-development/regions/us-west1/subnetworks/default"
+			},
+			{
 				AccessConfigs: []*compute.AccessConfig{
 					{
 						Type: "ONE_TO_ONE_NAT",
 						Name: "External NAT",
 					},
 				},
-				Subnetwork: "projects/npa-development/regions/us-west1/subnetworks/vpc-npa-priv-vpn-subnet",
-			},
-			{
-				Subnetwork: "projects/ns-npe-shared-vpc/regions/us-west1/subnetworks/shared-vpc-ns-usw1",
-				//Subnetwork: "projects/npa-development/regions/us-west1/subnetworks/default"
+				Subnetwork: "projects/npa-development/regions/us-west1/subnetworks/vpc-npa-priv-subnet",
 			},
 		},
 		Metadata: &compute.Metadata{
@@ -152,11 +153,15 @@ func create(client *http.Client, args *Args) {
 	wait(args, op, err)
 
 	inst, err = service.Instances.Get(args.Project, args.Region, args.Name).Do()
+	log.Printf("instance %s", inst)
 
-	log.Printf("instance ip %s - %s",
-		inst.NetworkInterfaces[0].NetworkIP,
-		inst.NetworkInterfaces[0].AccessConfigs[0].NatIP, inst)
-	updateDNS(args, inst.NetworkInterfaces[0].AccessConfigs[0].NatIP)
+	for _,intf := range inst.NetworkInterfaces {
+		if len(intf.AccessConfigs) > 0 {
+			log.Printf("instance ip %s - %s",
+				intf.NetworkIP, intf.AccessConfigs[0].NatIP)
+			updateDNS(args, intf.AccessConfigs[0].NatIP)
+		}
+	}
 }
 
 func main() {
