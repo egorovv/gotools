@@ -1,0 +1,104 @@
+version: "3.7"
+
+x-app: &default-app
+  image: npa-dev
+  volumes:
+    - ${WORKSPACE}:${WORKSPACE}
+    - ${WORKSPACE}/support/testbed/mpauth:/opt/ns/pop
+    - ${TESTBED}:/root
+  working_dir: /root
+  command: /npa/support/testbed/init
+  extra_hosts:
+    - "client:10.10.101.2"
+    - "gateway:10.10.101.10"
+    - "stitcher:10.10.100.20"
+    - "publisher:10.10.100.250"
+    - "server:10.10.100.2"
+    #- "ns-9177.nskp-inskope.npa.inskope.local:10.10.102.200"
+    #- "redis.nskp-inskope.npa.inskope.local:10.10.102.200"
+    - "ns-9177.nskp-inskope.npa.inskope.local:44.232.62.128"
+    - "redis.nskp-inskope.npa.inskope.local:44.232.62.128"
+  restart: always
+  cap_add: [ SYS_PTRACE, NET_ADMIN, SYS_ADMIN, CAP_NET_RAW, DAC_READ_SEARCH ]
+  hostname: client
+  container_name: client
+  devices: [ /dev/net/tun ]
+
+services:
+
+  client:
+    <<: *default-app
+    hostname: client
+    container_name: client
+    networks:
+      client:
+        ipv4_address: 10.10.101.2
+    devices: [ /dev/net/tun ]
+
+  orca:
+    <<: *default-app
+    hostname: orca
+    container_name: orca
+    networks:
+      service:
+        ipv4_address: 10.10.102.200
+
+  gateway:
+    <<: *default-app
+    hostname: gateway
+    container_name: gateway
+    networks:
+      service:
+        ipv4_address: 10.10.102.10
+      client:
+        ipv4_address: 10.10.101.10
+
+  stitcher:
+    <<: *default-app
+    hostname: stitcher
+    container_name: stitcher
+    networks:
+      service:
+        ipv4_address: 10.10.102.20
+      application:
+        ipv4_address: 10.10.100.20
+
+  publisher:
+    <<: *default-app
+    hostname: publisher
+    container_name: publisher
+    networks:
+      application:
+        ipv4_address: 10.10.100.250
+    devices: [ /dev/net/tun ]
+    sysctls: [ net.ipv4.conf.all.rp_filter=2]
+
+  server:
+    <<: *default-app
+    hostname: server
+    container_name: server
+    networks:
+      application:
+        ipv4_address: 10.10.100.2
+
+
+## NETWORK CONFIGURATION
+networks:
+  application:
+    name: npa-app-net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.100.0/24
+  client:
+    name: npa-client-net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.101.0/24
+  service:
+    name: npa-service-net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.102.0/24
