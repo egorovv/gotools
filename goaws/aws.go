@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"gotools/util"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -35,8 +34,9 @@ type Args struct {
 	User      string `json:"user"`
 	Subnet    string `json:"subnet"`
 	Nic       string `json:"nic"`
+	Disk      uint64 `json:"disk"`
 	Group     string `json:"group"`
-	Zone      string `json:"zone"`
+	Domain    string `json:"domain"`
 	AccessKey string `json:"access_key"`
 	SecretKey string `json:"secret_key"`
 	Token     string `json:"token"`
@@ -51,6 +51,9 @@ func load(a *Args) {
 	}
 	a.User = user.Username
 	a.Owner = user.Name
+	if a.Owner == "" {
+		a.Owner = user.Username
+	}
 	fn := path.Join(user.HomeDir, ".aws.json")
 
 	if f, err := os.Open(fn); err == nil {
@@ -80,7 +83,7 @@ func parse(a *Args) {
 }
 
 func update_dns(sess *session.Session, args *Args, ip string) {
-	if args.Zone == "" || ip == "" {
+	if args.Domain == "" || ip == "" {
 		return
 	}
 
@@ -88,7 +91,7 @@ func update_dns(sess *session.Session, args *Args, ip string) {
 
 	zones, err := dns.ListHostedZonesByName(
 		&route53.ListHostedZonesByNameInput{
-			DNSName: &args.Zone,
+			DNSName: &args.Domain,
 		})
 	if err != nil {
 		log.Printf("Error %s", err)
@@ -97,7 +100,7 @@ func update_dns(sess *session.Session, args *Args, ip string) {
 
 	id := ""
 	for _, z := range zones.HostedZones {
-		if *z.Name == args.Zone {
+		if *z.Name == args.Domain {
 			id = *z.Id
 		}
 	}
@@ -110,7 +113,7 @@ func update_dns(sess *session.Session, args *Args, ip string) {
 						{
 							Action: aws.String("DELETE"),
 							ResourceRecordSet: &route53.ResourceRecordSet{
-								Name: aws.String(args.Name + "." + args.Zone),
+								Name: aws.String(args.Name + "." + args.Domain),
 								Type: aws.String("A"),
 								TTL:  aws.Int64(30),
 								ResourceRecords: []*route53.ResourceRecord{
@@ -131,7 +134,7 @@ func update_dns(sess *session.Session, args *Args, ip string) {
 		}
 	}
 
-	name := args.Name + "." + strings.TrimRight(args.Zone, ".")
+	name := args.Name + "." + strings.TrimRight(args.Domain, ".")
 	log.Printf("Updating record %s : %s", name, ip)
 
 	_, err = dns.ChangeResourceRecordSets(
@@ -141,7 +144,7 @@ func update_dns(sess *session.Session, args *Args, ip string) {
 					{
 						Action: aws.String("UPSERT"),
 						ResourceRecordSet: &route53.ResourceRecordSet{
-							Name: aws.String(args.Name + "." + args.Zone),
+							Name: aws.String(args.Name + "." + args.Domain),
 							Type: aws.String("A"),
 							TTL:  aws.Int64(30),
 							ResourceRecords: []*route53.ResourceRecord{
@@ -160,6 +163,43 @@ func update_dns(sess *session.Session, args *Args, ip string) {
 		log.Printf("Error %s", err)
 		return
 	}
+}
+
+func find(args Args, svc *ec2.EC2) (ip string) {
+	running := "16"
+	filter := []*ec2.Filter{
+		&ec2.Filter{
+			Name: aws.String("tag:Name"),
+			Values: []*string{
+				&args.Name,
+			},
+		},
+		&ec2.Filter{
+			Name: aws.String("instance-state-code"),
+			Values: []*string{
+				&running,
+			},
+		},
+	}
+
+	desc, err := svc.DescribeInstances(&ec2.DescribeInstancesInput{
+		Filters: filter,
+	})
+
+	if err != nil {
+		log.Printf("Error enumerating %s", err)
+		return
+	}
+
+	for _, r := range desc.Reservations {
+		for _, i := range r.Instances {
+			if i.PublicIpAddress != nil {
+				return *i.PublicIpAddress
+			}
+		}
+	}
+	log.Printf("Error enumerating")
+	return
 }
 
 func cleanup(args Args, svc *ec2.EC2) (ip string) {
@@ -264,6 +304,10 @@ func main() {
 
 	util.GetFlags(&args, "aws")
 
+	if args.Disk == 0 {
+		args.Disk = 1000
+	}
+
 	if args.Verbose {
 		util.Dump("args", args)
 	}
@@ -277,9 +321,15 @@ func main() {
 	sess := session.Must(session.NewSession(cfg))
 	svc := ec2.New(sess)
 
+	if args.Type == "-" {
+		ip := find(args, svc)
+		update_dns(sess, &args, ip)
+		return
+	}
+
 	oldip := cleanup(args, svc)
 
-	if args.Type == "-" || args.Type == "none" {
+	if args.Type == "none" {
 		update_dns(sess, &args, oldip)
 		return
 	}
@@ -312,18 +362,6 @@ func main() {
 			Key:   aws.String("Owner"),
 			Value: aws.String(args.Owner),
 		},
-		&ec2.Tag{
-			Key:   aws.String("auto:start"),
-			Value: aws.String("* * * * *"),
-		},
-		&ec2.Tag{
-			Key:   aws.String("Active"),
-			Value: aws.String("True"),
-		},
-		&ec2.Tag{
-			Key:   aws.String("Expire"),
-			Value: aws.String("2029-09-23"),
-		},
 	}
 
 	params := &ec2.RunInstancesInput{
@@ -348,16 +386,16 @@ func main() {
 		},
 		BlockDeviceMappings: []*ec2.BlockDeviceMapping{
 			&ec2.BlockDeviceMapping{
-				DeviceName: aws.String("/dev/sda1"),
+				DeviceName: aws.String("/dev/xvda"),
 				Ebs: &ec2.EbsBlockDevice{
-					VolumeSize: aws.Int64(500),
+					VolumeSize: aws.Int64(int64(args.Disk)),
 				},
 			},
 		},
 	}
 
 	if args.UserData != "" {
-		str, err := ioutil.ReadFile(args.UserData)
+		str, err := os.ReadFile(args.UserData)
 		if err != nil {
 			log.Printf("Bad user_data %s: %s", args.UserData, err)
 			return
