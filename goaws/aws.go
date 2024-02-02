@@ -364,6 +364,16 @@ func main() {
 		},
 	}
 
+	img, err := svc.DescribeImages(&ec2.DescribeImagesInput{
+		ImageIds: []*string{&args.Image},
+	})
+	if err != nil {
+		log.Printf("Could not find image %s", err)
+		return
+	}
+	volumes := img.Images[0].BlockDeviceMappings
+	volumes[0].Ebs.VolumeSize = aws.Int64(int64(args.Disk))
+
 	params := &ec2.RunInstancesInput{
 		ImageId:      aws.String(args.Image),
 		InstanceType: aws.String(args.Type),
@@ -384,14 +394,7 @@ func main() {
 				Tags:         tags,
 			},
 		},
-		BlockDeviceMappings: []*ec2.BlockDeviceMapping{
-			&ec2.BlockDeviceMapping{
-				DeviceName: aws.String("/dev/xvda"),
-				Ebs: &ec2.EbsBlockDevice{
-					VolumeSize: aws.Int64(int64(args.Disk)),
-				},
-			},
-		},
+		BlockDeviceMappings: volumes,
 	}
 
 	if args.UserData != "" {
